@@ -16,6 +16,9 @@ DOCKER_COMPOSE_TMPLT_FILE = "docker-compose.yml.jinja2"
 RELEASE_FILE = "release.json"
 
 
+class AppError(Exception):
+    pass
+
 
 class DockerComposeTemplateFormatter(BaseTemplateFormatter):
 
@@ -43,7 +46,7 @@ def docker_load(client: DockerClient, filepath: str) -> list:
 def unpack_archive(archive_filepath: str) -> str:
     match = re.match(r"(.+)\.(tar|tar.gz)$", archive_filepath, re.I)
     if not match:
-        raise Exception(f"Unsupported archive file format: {archive_filepath}")
+        raise AppError(f"Unsupported archive file format: {archive_filepath}")
     extract_dir = match.group(1)
     logger.info("Unpacking '{}' to '{}' directory...", archive_filepath, extract_dir)
     shutil.unpack_archive(archive_filepath, extract_dir=extract_dir)
@@ -54,7 +57,7 @@ def load_docker_images(client: DockerClient, release_dir: str) -> None:
     file_pattern = "release-*.tar"
     files = fnmatch.filter(os.listdir(release_dir), file_pattern)
     if not files:
-        raise Exception(f"Docker images tar file with '{file_pattern}' pattern is not present")
+        raise AppError(f"Docker images tar file with '{file_pattern}' pattern is not present")
     tar_filepath = os.path.join(release_dir, files[0])
     logger.info("Loading docker images from {}...", tar_filepath)
     images = docker_load(client, tar_filepath)
@@ -77,7 +80,7 @@ def check_release_versions_exist(client: DockerClient, release_images: list) -> 
             missed_docker_images.append(docker_image)
 
     if missed_docker_images:
-        raise Exception(f"Missed some release docker images: {', '.join(missed_docker_images)}")
+        raise AppError(f"Missed some release docker images: {', '.join(missed_docker_images)}")
 
 
 def update_lucidum(archive_filepath: str) -> None:

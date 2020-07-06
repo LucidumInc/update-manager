@@ -1,9 +1,11 @@
 from loguru import logger
 
-from app.lucidum import update_lucidum
+from app.lucidum import update_lucidum, AppError
 
 if __name__ == "__main__":
     try:
-        update_lucidum('release-0.0.1.tar.gz')
+        update_lucidum('release-0.0.1.tar.gz1')
+    except AppError as e:
+        logger.exception(e)
     except Exception as e:
-        logger.exception("Exception occurred")
+        logger.exception("Unhandled exception occurred")

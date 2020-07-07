@@ -1,0 +1,4 @@
+[global]
+lucidum_dir = "/home/demo/lucidum"
+docker_compose_executable = "/home/demo/anaconda3/bin/docker-compose"
+archive_config = { file_pattern = "release-*.tar", release_file = "release.json" }

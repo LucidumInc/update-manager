@@ -7,20 +7,10 @@ import subprocess
 
 import yaml
 from docker import DockerClient
-from jinja2 import Environment, FileSystemLoader
 from loguru import logger
 
-from config_handler import get_archive_config, get_lucidum_dir, get_docker_compose_executable
-
-logger.add("logs/job_{time}.log", rotation="1 day", retention="30 days", diagnose=True)
-
-_jinja_env = Environment(loader=FileSystemLoader("tmplts"))
-DOCKER_COMPOSE_TMPLT_FILE = "docker-compose.yml.jinja2"
-
-
-class AppError(Exception):
-    """Represents custom exception for application."""
-    pass
+from config_handler import get_archive_config, get_lucidum_dir, get_docker_compose_executable, get_jinja_env
+from exceptions import AppError
 
 
 class BaseTemplateFormatter:
@@ -50,7 +40,7 @@ class DockerComposeTemplateFormatter(BaseTemplateFormatter):
 
     @property
     def template_file(self) -> str:
-        return DOCKER_COMPOSE_TMPLT_FILE
+        return "docker-compose.yml.jinja2"
 
     @property
     def output_file(self) -> str:
@@ -62,7 +52,8 @@ class DockerComposeTemplateFormatter(BaseTemplateFormatter):
 
 def format_template(formatter: BaseTemplateFormatter) -> None:
     """Create formatted file based on jinja template with passed formatter."""
-    template = _jinja_env.get_template(formatter.template_file)
+    jinja_env = get_jinja_env()
+    template = jinja_env.get_template(formatter.template_file)
     template.stream(**formatter.get_template_params()).dump(formatter.output_file)
 
 
@@ -74,6 +65,8 @@ def docker_load(client: DockerClient, filepath: str) -> list:
 
 def unpack_archive(archive_filepath: str) -> str:
     """Unpack archive from given file path."""
+    if not os.path.isfile(archive_filepath):
+        raise AppError(f"File '{archive_filepath}' does not exist")
     match = re.match(r"(.+)\.(tar|tar.gz)$", archive_filepath, re.I)
     if not match:
         raise AppError(f"Unsupported archive file format: {archive_filepath}")
@@ -83,8 +76,9 @@ def unpack_archive(archive_filepath: str) -> str:
     return extract_dir
 
 
-def load_docker_images(client: DockerClient, release_dir: str, file_pattern: str) -> None:
+def load_docker_images(client: DockerClient, release_dir: str) -> None:
     """Find archive based on file pattern and load docker images from it."""
+    file_pattern = get_archive_config()["file_pattern"]
     files = fnmatch.filter(os.listdir(release_dir), file_pattern)
     if not files:
         raise AppError(f"Docker images tar file with '{file_pattern}' pattern is not present")
@@ -96,7 +90,7 @@ def load_docker_images(client: DockerClient, release_dir: str, file_pattern: str
 
 def check_release_versions_exist(client: DockerClient, release_images: list) -> None:
     """Check if given release images exist within docker."""
-    with open(os.path.join("tmplts", DOCKER_COMPOSE_TMPLT_FILE)) as f:
+    with open(os.path.join("tmplts", "docker-compose.yml.jinja2")) as f:
         dc = yaml.full_load(f)
 
     containers = {
@@ -115,15 +109,8 @@ def check_release_versions_exist(client: DockerClient, release_images: list) -> 
         raise AppError(f"Missed some release docker images: {', '.join(missed_docker_images)}")
 
 
-def update_lucidum(archive_filepath: str) -> None:
-    """Unpack archive, load docker images, format docker-compose.yml file and run docker-compose."""
-    if not os.path.isfile(archive_filepath):
-        raise AppError(f"File '{archive_filepath}' does not exist")
-    release_dir = unpack_archive(archive_filepath)
-    client = DockerClient.from_env()
-    archive_config = get_archive_config()
-    load_docker_images(client, release_dir, archive_config["file_pattern"])
-    release_file = os.path.join(release_dir, archive_config["release_file"])
+def format_docker_compose(client: DockerClient, release_dir: str) -> None:
+    release_file = os.path.join(release_dir, get_archive_config()["release_file"])
     if not os.path.isfile(release_file):
         raise AppError(f"Release metadata file '{release_file}' does not exist")
     with open(release_file) as f:
@@ -131,14 +118,26 @@ def update_lucidum(archive_filepath: str) -> None:
     logger.info(f"Release versions:\n{json.dumps(release['images'], indent=2)}")
     check_release_versions_exist(client, release["images"])
     format_template(DockerComposeTemplateFormatter(release["images"]))
+
+
+def run_docker_compose() -> None:
     logger.info("Running docker-compose to up lucidum infrastructure...")
     subprocess.run([get_docker_compose_executable(), "up", "-d"], cwd=get_lucidum_dir(), check=True)
+
+
+def run(archive_filepath: str) -> None:
+    """Unpack archive, load docker images, format docker-compose.yml file and run docker-compose."""
+    release_dir = unpack_archive(archive_filepath)
+    client = DockerClient.from_env()
+    load_docker_images(client, release_dir)
+    format_docker_compose(client, release_dir)
+    run_docker_compose()
 
 
 def install(archive_filepath: str) -> None:
     """Install lucidum from given archive and handle errors."""
     try:
-        update_lucidum(archive_filepath)
+        run(archive_filepath)
     except AppError as e:
         logger.exception(e)
     except Exception:

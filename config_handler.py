@@ -4,7 +4,6 @@ from cryptography.fernet import Fernet
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from dynaconf import settings
-from jinja2 import Environment, FileSystemLoader
 
 from exceptions import AppError
 
@@ -59,8 +58,12 @@ def get_backup_dir() -> str:
     return required_field_check("BACKUP_DIR")
 
 
-def get_jinja_env():
-    return Environment(loader=FileSystemLoader("tmplts"))
+def get_jinja_templates_dir() -> str:
+    return required_field_check("JINJA_TEMPLATES_DIR")
+
+
+def get_docker_compose_tmplt_file() -> str:
+    return required_field_check("DOCKER_COMPOSE_TMPLT_FILE")
 
 
 def get_demo_pwd() -> str:

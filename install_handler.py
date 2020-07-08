@@ -7,10 +7,14 @@ import subprocess
 
 import yaml
 from docker import DockerClient
+from jinja2 import Environment, FileSystemLoader
 from loguru import logger
 
-from config_handler import get_archive_config, get_lucidum_dir, get_docker_compose_executable, get_jinja_env
+from config_handler import get_archive_config, get_lucidum_dir, get_docker_compose_executable, \
+    get_jinja_templates_dir, get_docker_compose_tmplt_file
 from exceptions import AppError
+
+_jinja_env = Environment(loader=FileSystemLoader(get_jinja_templates_dir()))
 
 
 class BaseTemplateFormatter:
@@ -40,7 +44,7 @@ class DockerComposeTemplateFormatter(BaseTemplateFormatter):
 
     @property
     def template_file(self) -> str:
-        return "docker-compose.yml.jinja2"
+        return get_docker_compose_tmplt_file()
 
     @property
     def output_file(self) -> str:
@@ -52,8 +56,7 @@ class DockerComposeTemplateFormatter(BaseTemplateFormatter):
 
 def format_template(formatter: BaseTemplateFormatter) -> None:
     """Create formatted file based on jinja template with passed formatter."""
-    jinja_env = get_jinja_env()
-    template = jinja_env.get_template(formatter.template_file)
+    template = _jinja_env.get_template(formatter.template_file)
     template.stream(**formatter.get_template_params()).dump(formatter.output_file)
 
 
@@ -90,7 +93,7 @@ def load_docker_images(client: DockerClient, release_dir: str) -> None:
 
 def check_release_versions_exist(client: DockerClient, release_images: list) -> None:
     """Check if given release images exist within docker."""
-    with open(os.path.join("tmplts", "docker-compose.yml.jinja2")) as f:
+    with open(os.path.join(get_jinja_templates_dir(), get_docker_compose_tmplt_file())) as f:
         dc = yaml.full_load(f)
 
     containers = {
@@ -132,6 +135,8 @@ def run(archive_filepath: str) -> None:
     load_docker_images(client, release_dir)
     format_docker_compose(client, release_dir)
     run_docker_compose()
+    if os.path.isdir(release_dir):
+        shutil.rmtree(release_dir)
 
 
 def install(archive_filepath: str) -> None:

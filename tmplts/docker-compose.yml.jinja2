@@ -6,8 +6,8 @@ services:
     image: bitnami/mongodb:{{ mongo_version }}
     restart: always
     environment:
-      - MONGODB_USERNAME=${USER}
-      - MONGODB_PASSWORD=${PASSWORD}
+      - MONGODB_USERNAME=${DB_USER}
+      - MONGODB_PASSWORD=${DB_PASSWORD}
       - MONGODB_DATABASE=test_database
     volumes:
         - ./mongo/db:/bitnami/mongodb
@@ -33,9 +33,9 @@ services:
       - 3306:3306
     environment:
       MYSQL_DATABASE: lucidum
-      MYSQL_USER: ${USER}
-      MYSQL_PASSWORD: ${PASSWORD}
-      MYSQL_ROOT_PASSWORD: ${PASSWORD}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
 
   web:
     # app is running at: http://localhost:8080/CMDB

@@ -29,5 +29,12 @@ def backup(data: tuple):
     backup_lucidum(backup_data)
 
 
+@cli.command()
+@click.option("--data", "-d", multiple=True, required=True, type=(str, click.Path(exists=True, dir_okay=False)))
+def restore(data):
+    from restore_handler import restore as restore_lucidum
+    restore_lucidum([d for d in data])
+
+
 if __name__ == '__main__':
     cli()

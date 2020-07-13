@@ -1,0 +1,10 @@
+[global]
+lucidum_dir = "/home/demo/lucidum"
+backup_dir = "/home/demo/backup"
+jinja_templates_dir = "tmplts"
+docker_compose_tmplt_file = "docker-compose.yml.jinja2"
+demo_pwd = "gAAAAABfBdCdB9YlLyLCBdi1adsF4tvGK7dcSfWI6dN_TdTLvLsMxQuPAxhHi49-reFt1yT9LdA4iROvZ_v9nE6y7dU1Uw2TnQ=="
+docker_compose_executable = "/home/demo/anaconda3/bin/docker-compose"
+archive_config = { file_pattern = "release-*.tar", release_file = "release.json" }
+database_config = {mysql_host='localhost', mysql_user='lucidum', mysql_pwd='gAAAAABer0AMtv0Kl5eOZnoKK0u32X5eTQTjUBs5AktJhQoW25IjKq2REZdSpUOXA30d-JnNaEXkYSqpr3vO7n1MEh8FnZ3hxI4_MtFaWRdPbw9mxYd4ayQ=', mysql_port=3306, mysql_db='lucidum'}
+mongo_config = {mongo_host="localhost", mongo_user="lucidum", mongo_pwd="gAAAAABer0AMtv0Kl5eOZnoKK0u32X5eTQTjUBs5AktJhQoW25IjKq2REZdSpUOXA30d-JnNaEXkYSqpr3vO7n1MEh8FnZ3hxI4_MtFaWRdPbw9mxYd4ayQ=", mongo_port=27017, mongo_db="test_database"}

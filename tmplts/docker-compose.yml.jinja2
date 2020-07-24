@@ -40,7 +40,7 @@ services:
   web:
     # app is running at: http://localhost:8080/CMDB
     container_name: web
-    image: webapp:{{ web_version }}
+    image: mvp1_backend:{{ web_version }}
     restart: always
     ports:
       - "8080:8080"

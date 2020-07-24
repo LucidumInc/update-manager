@@ -51,7 +51,14 @@ class DockerComposeTemplateFormatter(BaseTemplateFormatter):
         return os.path.join(get_lucidum_dir(), 'docker-compose.yml')
 
     def get_template_params(self):
-        return {f"{image['name']}_version": image['version'] for image in self._images}
+        with open(os.path.join(get_jinja_templates_dir(), get_docker_compose_tmplt_file())) as f:
+            dc = yaml.full_load(f)
+
+        images = {
+            service["image"][0:service["image"].index(":")]: service["container_name"]
+            for service in dc["services"].values()
+        }
+        return {f"{images[image['name']]}_version": image['version'] for image in self._images}
 
 
 def format_template(formatter: BaseTemplateFormatter) -> None:
@@ -81,30 +88,22 @@ def unpack_archive(archive_filepath: str) -> str:
 
 def load_docker_images(client: DockerClient, release_dir: str) -> None:
     """Find archive based on file pattern and load docker images from it."""
-    file_pattern = get_archive_config()["file_pattern"]
-    files = fnmatch.filter(os.listdir(release_dir), file_pattern)
-    if not files:
-        raise AppError(f"Docker images tar file with '{file_pattern}' pattern is not present")
-    tar_filepath = os.path.join(release_dir, files[0])
-    logger.info("Loading docker images from {} file...", tar_filepath)
-    images = docker_load(client, tar_filepath)
-    logger.info("Loaded docker images: {}", ", ".join(i.tags[0] for i in images))
+    docker_images_dir = os.path.join(release_dir, get_archive_config()["docker_images_dir"])
+    for filename in os.listdir(docker_images_dir):
+        if not fnmatch.fnmatch(filename, "*.tar"):
+            continue
+        f_name = os.path.join(docker_images_dir, filename)
+        logger.info("Loading docker images from '{}' file...", f_name)
+        images = docker_load(client, f_name)
+        logger.info("Loaded docker images from '{}' file: {}", f_name, ", ".join(i.tags[0] for i in images))
 
 
 def check_release_versions_exist(client: DockerClient, release_images: list) -> None:
     """Check if given release images exist within docker."""
-    with open(os.path.join(get_jinja_templates_dir(), get_docker_compose_tmplt_file())) as f:
-        dc = yaml.full_load(f)
-
-    containers = {
-        service["container_name"]: service["image"][0:service["image"].index(":")]
-        for service in dc["services"].values()
-    }
-
     docker_images = [tag for image in client.images.list() for tag in image.tags]
     missed_docker_images = []
     for image in release_images:
-        docker_image = f"{containers[image['name']]}:{image['version']}"
+        docker_image = f"{image['name']}:{image['version']}"
         if docker_image not in docker_images:
             missed_docker_images.append(docker_image)
 
@@ -131,12 +130,14 @@ def run_docker_compose() -> None:
 def run(archive_filepath: str) -> None:
     """Unpack archive, load docker images, format docker-compose.yml file and run docker-compose."""
     release_dir = unpack_archive(archive_filepath)
-    client = DockerClient.from_env()
-    load_docker_images(client, release_dir)
-    format_docker_compose(client, release_dir)
-    run_docker_compose()
-    if os.path.isdir(release_dir):
-        shutil.rmtree(release_dir)
+    try:
+        client = DockerClient.from_env()
+        load_docker_images(client, release_dir)
+        format_docker_compose(client, release_dir)
+        run_docker_compose()
+    finally:
+        if os.path.isdir(release_dir):
+            shutil.rmtree(release_dir)
 
 
 def install(archive_filepath: str) -> None:
@@ -145,5 +146,7 @@ def install(archive_filepath: str) -> None:
         run(archive_filepath)
     except AppError as e:
         logger.exception(e)
+        exit(1)
     except Exception:
         logger.exception("Unhandled exception occurred")
+        exit(1)

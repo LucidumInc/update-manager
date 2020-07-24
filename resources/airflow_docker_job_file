@@ -1,0 +1,98 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Mar 30 09:08:48 2020
+
+@author: Shuning Wu
+
+References:
+    https://airflow.apache.org/docs/stable/scheduler.html
+    https://airflow.apache.org/docs/stable/_api/airflow/operators/docker_operator/index.html
+"""
+
+from airflow import DAG
+from datetime import datetime, timedelta
+from airflow.operators.docker_operator import DockerOperator
+
+
+# Define docker operator function
+def docker_run(task_id,
+               python_code,
+               image,
+               volumes,
+               trigger_rule='all_success'):
+    """
+    Create docker operator
+    :param task_id: airflow task id
+    :type task_id: str
+    :param python_code: python code name with optional argument
+    :type python_code: str
+    :param trigger_rule: airflow trigger rule (https://airflow.apache.org/docs/stable/concepts.html#trigger-rules)
+    :type trigger_rule: str
+    :param image: docker image name to load by airflow
+    :type image: str
+    :param volumes: volume mappings (from host to docker container)
+    :type volumes: list
+    :return: airflow docker operator
+    """
+    return DockerOperator(
+        task_id=task_id,
+        image=image,
+        api_version='auto',
+        auto_remove=True,
+        command=python_code,
+        volumes=volumes,
+        docker_url='unix://var/run/docker.sock',
+        network_mode='lucidum_default',
+        trigger_rule=trigger_rule
+    )
+
+
+default_args = {
+    'owner': 'airflow',
+    'description': 'Schedule DockerOperator',
+    'depend_on_past': False,
+    'start_date': datetime(2020, 3, 1),
+    'email_on_failure': True,
+    'email_on_retry': True,
+    'email': ['sw@lucidum.io'],
+    'retries': 3,
+    'retry_delay': timedelta(minutes=15)
+}
+
+# Schedule_interval definition
+# preset: @hourly, @daily, @weekly, @monthly, @yearly
+# .---------------- minute (0 - 59)
+# |  .------------- hour (0 - 23)
+# |  |  .---------- day of month (1 - 31)
+# |  |  |  .------- month (1 - 12) OR jan,feb,mar,apr ...
+# |  |  |  |  .---- day of week (0 - 6) (Sunday=0 or 7) OR sun,mon,tue,wed,thu,fri,sat
+
+with DAG('docker_dag',
+         default_args=default_args,
+         schedule_interval="5 8 * * *",
+         catchup=False) as dag:
+    # Define tasks
+    host_path = "/usr/lucidum"
+    t01 = docker_run(task_id='run_aws_connector',
+                     python_code='python /tmp/app/lucidum_aws.py run-adhoc',
+                     image='connector-aws:latest',
+                     volumes=[host_path + "/connector-aws/external:/tmp/app/external:rw"])
+
+    t1 = docker_run(task_id='run_ml_file_sharing',
+                    python_code='python /home/run_file_sharing_topic.py',
+                    image='ml_merger:latest',
+                    trigger_rule='all_done',
+                    volumes=[host_path + "/ml_merger/custom_rules:/home/custom_rules:rw"])
+
+    t2 = docker_run(task_id='run_ml_network_pagerank',
+                    python_code='python /home/run_network_flow_pagerank.py',
+                    image= 'ml_merger:latest',
+                    volumes=[host_path + "/ml_merger/custom_rules:/home/custom_rules:rw"])
+
+    t3 = docker_run(task_id='run_data_merger',
+                    python_code='python /home/func_output_data_merger.py',
+                    image='ml_merger:latest',
+                    volumes=[host_path + "/ml_merger/custom_rules:/home/custom_rules:rw"])
+
+    # Combine the tasks to a DAG
+    t01 >> t1 >> t2 >> t3

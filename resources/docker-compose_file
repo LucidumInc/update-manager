@@ -1,0 +1,51 @@
+version: "3"
+
+services:           
+  mongo:
+    container_name: mongo
+    image: bitnami/mongodb:4.0.14-r29
+    restart: always
+    environment:
+      - MONGODB_USERNAME=${USER}
+      - MONGODB_PASSWORD=${PASSWORD}
+      - MONGODB_DATABASE=test_database
+    volumes:
+      - ./mongo/db:/bitnami/mongodb
+    ports:
+      - "27017:27017"
+
+  graphite:
+    container_name: graphite
+    image: graphiteapp/graphite-statsd:1.1.7-3
+    restart: always
+    ports:
+      - "8095:80"
+      - "2004:2004"
+
+  mysql:
+    container_name: mysql
+    image: bitnami/mysql:8.0.20
+    volumes:
+      - "./mysql/db:/bitnami/mysql/data"
+      - "./mysql/config/my_custom.cnf:/opt/bitnami/mysql/conf/my_custom.cnf:ro"
+    restart: always
+    ports:
+      - 3306:3306
+    environment:
+      MYSQL_DATABASE: lucidum
+      MYSQL_USER: ${USER}
+      MYSQL_PASSWORD: ${PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${PASSWORD}
+
+  web:
+    # app is running at: http://localhost:8080/CMDB
+    container_name: web
+    image: web_ui:latest
+    restart: always
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./web/app/logs/:/usr/local/tomcat/logs/
+      - ./web/app/hostdata/:/bitnami/hostdata/
+    depends_on:
+      - mongo

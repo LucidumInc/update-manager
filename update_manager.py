@@ -3,11 +3,9 @@ from loguru import logger
 
 logger.add("logs/job_{time}.log", rotation="1 day", retention="30 days", diagnose=True)
 
-
 @click.group()
 def cli():
     pass
-
 
 @cli.command()
 @click.option(
@@ -17,6 +15,11 @@ def cli():
 def install(archive: str) -> None:
     from install_handler import install as setup_lucidum
     setup_lucidum(archive)
+
+@cli.command()
+@click.option('--component','-c', multiple=True, type=click.Choice(['python/ml', 'mvp1_backend']))
+def installecr(component) -> None:
+    logger.info(component)
 
 
 @cli.command()

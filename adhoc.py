@@ -1,3 +1,4 @@
+
 import os
 import tarfile
 import click
@@ -5,26 +6,35 @@ from docker import DockerClient
 from loguru import logger
 
 client = DockerClient.from_env()
+host_path = "/usr/lucidum"
 ecr_images = [
     {
         "name": "connector-aws",
         "rename": "connector-aws:latest",
         "image": "308025194586.dkr.ecr.us-west-1.amazonaws.com/connector-aws:latest",
-        "hostPath": "/home/demo/lucidum/connector-aws/external",
+        "hostPath": host_path + "/connector-aws/external",
         "dockerPath": "/tmp/app/external"
     },
     {   "name": "ml_merger",
         "rename": "ml_merger:latest",
         "image": "308025194586.dkr.ecr.us-west-1.amazonaws.com/python/ml:latest",
-        "hostPath": "/home/demo/lucidum/ml_merger/custom_rules",
+        "hostPath": host_path + "/ml_merger/custom_rules",
         "dockerPath": "/home/custom_rules"
+    },
+    {   "name": "web_ui",
+        "rename": "web_ui:latest",
+        "image": "308025194586.dkr.ecr.us-west-1.amazonaws.com/mvp1_backend:latest",
     }
 ]
 
 def _remove_image(docker_client, image_name):
     result = docker_client.images.list(image_name)
     if len(result) > 0:
-        docker_client.images.remove(image_name)
+        docker_client.images.remove(image_name, True)
+
+def _check_path(path):
+    if not os.path.exists(path):
+        os.makedirs(path)
 
 @click.group()
 def cli():
@@ -32,18 +42,17 @@ def cli():
 
 @cli.command()
 @click.option('--copy_default', '-c', default=False, help='copy default files from docker to host')
-@click.option('--rename', '-r',  default=False, help='rename image name')
-def update(copy_default, rename):
-    logger.info(f"copy_default: {copy_default}, rename: {rename}")
+def update(copy_default):
     for ecr_image in ecr_images:
         _remove_image(client, ecr_image['image'])
         _remove_image(client, ecr_image['rename'])
         image = client.images.pull(ecr_image['image'])
         logger.info(f"updated to latest image, id: {image.short_id} tag: {image.tags}")
-        if rename:
+        if ecr_image['rename']:
             image.tag(ecr_image['rename'])
             client.images.remove(ecr_image['image'])
         if copy_default:
+            _check_path(ecr_image['hostPath'])
             logger.info(f"copy default files from {image.tags} docker f{ecr_image['dockerPath']} to host f{ecr_image['hostPath']}")
             container = client.containers.create(image, 'bash')
             bits, stat = container.get_archive(ecr_image['dockerPath'] + '/.')

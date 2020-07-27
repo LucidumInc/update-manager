@@ -1,5 +1,6 @@
+import os
 from base64 import urlsafe_b64encode
-
+import json
 from cryptography.fernet import Fernet
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -49,6 +50,8 @@ def get_archive_config() -> dict:
 def get_lucidum_dir() -> str:
     return required_field_check("LUCIDUM_DIR")
 
+def get_ecr_base() -> str:
+    return required_field_check("ECR_BASE")
 
 def get_docker_compose_executable() -> str:
     return required_field_check("DOCKER_COMPOSE_EXECUTABLE")
@@ -89,3 +92,22 @@ def get_mongo_config():
         "mongo_port": required_field_check('MONGO_CONFIG.MONGO_PORT'),
         "mongo_db": required_field_check('MONGO_CONFIG.MONGO_DB'),
     }
+
+def get_ecr_image_list():
+    json_file = settings.get('ECR_IMAGE_LIST')
+    if not os.path.exists(json_file):
+        raise FileNotFoundError(json_file)
+    return json.load(open(json_file))
+
+def get_ecr_images():
+    ecr_base = get_ecr_base()
+    lucidum_base = get_lucidum_dir()
+    ecr_image_list = get_ecr_image_list()
+    ecr_images = get_ecr_image_list()
+    for ecr_image in ecr_images:
+        if "hostPath" in ecr_image:
+            ecr_image["hostPath"] = ecr_image["hostPath"].format(lucidum_base, ecr_image['name'])
+        if not "image" in ecr_image:
+            ecr_image["image"] = "{}/{}:{}".format(ecr_base, ecr_image["name"], ecr_image["version"])
+    return ecr_images
+

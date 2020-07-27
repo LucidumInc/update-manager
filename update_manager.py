@@ -1,6 +1,6 @@
 import click
 from loguru import logger
-
+from install_handler import install_ecr, get_install_ecr_components
 logger.add("logs/job_{time}.log", rotation="1 day", retention="30 days", diagnose=True)
 
 @click.group()
@@ -17,9 +17,11 @@ def install(archive: str) -> None:
     setup_lucidum(archive)
 
 @cli.command()
-@click.option('--component','-c', multiple=True, type=click.Choice(['python/ml', 'mvp1_backend']))
-def installecr(component) -> None:
-    logger.info(component)
+@click.option('--components','-c', required=True, multiple=True, type=click.Choice(get_install_ecr_components()), help="ecr component list")
+@click.option('--copy_default', '-d', default=False, help='copy default files from docker to host')
+def installecr(components, copy_default) -> None:
+    logger.info(f"ecr components: {components}")
+    install_ecr(components, copy_default)
 
 
 @cli.command()

@@ -1,0 +1,16 @@
+[
+    {
+        "name": "connector-api",
+        "version": "latest",
+        "hostPath": "{}/{}/external",
+        "dockerPath": "/tmp/app/external"
+    },
+    {   "name": "python/ml",
+        "version": "latest",
+        "hostPath": "{}/{}/custom_rules",
+        "dockerPath": "/home/custom_rules"
+    },
+    {   "name": "mvp1_backend",
+        "version": "latest"
+    }
+]

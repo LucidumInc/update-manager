@@ -73,26 +73,31 @@ with DAG('docker_dag',
          catchup=False) as dag:
     # Define tasks
     host_path = "/usr/lucidum"
-    t01 = docker_run(task_id='run_aws_connector',
-                     python_code='python /tmp/app/lucidum_aws.py run-adhoc',
-                     image='connector-aws:latest',
-                     volumes=[host_path + "/connector-aws/external:/tmp/app/external:rw"])
+    t00 = docker_run(task_id='run_connector_api_ad_user',
+                     python_code='python /tmp/app/lucidum_api.py run-adhoc ad_user',
+                     image='connector-api:latest',
+                     volumes=[host_path + "/connector-api/external:/tmp/app/external:rw"])
+    t01 = docker_run(task_id='run_connector_api_tenable_scan',
+                     python_code='python /tmp/app/lucidum_api.py run-adhoc tenable_scan',
+                     image='connector-api:latest',
+                     volumes=[host_path + "/connector-api/external:/tmp/app/external:rw"])
 
     t1 = docker_run(task_id='run_ml_file_sharing',
                     python_code='python /home/run_file_sharing_topic.py',
-                    image='ml_merger:latest',
+                    image='python/ml:latest',
                     trigger_rule='all_done',
-                    volumes=[host_path + "/ml_merger/custom_rules:/home/custom_rules:rw"])
+                    volumes=[host_path + "/python/ml/custom_rules:/home/custom_rules:rw"])
 
     t2 = docker_run(task_id='run_ml_network_pagerank',
                     python_code='python /home/run_network_flow_pagerank.py',
-                    image= 'ml_merger:latest',
-                    volumes=[host_path + "/ml_merger/custom_rules:/home/custom_rules:rw"])
+                    image= 'python/ml:latest',
+                    volumes=[host_path + "/python/ml/custom_rules:/home/custom_rules:rw"])
 
     t3 = docker_run(task_id='run_data_merger',
                     python_code='python /home/func_output_data_merger.py',
-                    image='ml_merger:latest',
-                    volumes=[host_path + "/ml_merger/custom_rules:/home/custom_rules:rw"])
+                    image='python/ml:latest',
+                    volumes=[host_path + "/python/ml/custom_rules:/home/custom_rules:rw"])
 
     # Combine the tasks to a DAG
-    t01 >> t1 >> t2 >> t3
+    t00 >> t01 >> t1
+    t1 >> t2 >> t3

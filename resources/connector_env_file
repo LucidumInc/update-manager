@@ -1,0 +1,1 @@
+DYNACONF_DATABASE_CONFIG = {mysql_host='mysql', mysql_user='lucidum', mysql_pwd='gAAAAABer0AMtv0Kl5eOZnoKK0u32X5eTQTjUBs5AktJhQoW25IjKq2REZdSpUOXA30d-JnNaEXkYSqpr3vO7n1MEh8FnZ3hxI4_MtFaWRdPbw9mxYd4ayQ=', mysql_port=3306, mysql_db='lucidum'}

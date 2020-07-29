@@ -3,7 +3,7 @@ version: "3"
 services:
   mongo:
     container_name: mongo
-    image: bitnami/mongodb:{{ mongo_version }}
+    image: bitnami/mongodb:{{ mongo|default('4.0.14-r29') }}
     restart: always
     environment:
       - MONGODB_USERNAME=${DB_USER}
@@ -16,7 +16,7 @@ services:
 
   graphite:
     container_name: graphite
-    image: graphiteapp/graphite-statsd:{{ graphite_version }}
+    image: graphiteapp/graphite-statsd:{{ graphite|default('1.1.7-3') }}
     restart: always
     ports:
       - "8095:80"
@@ -24,7 +24,7 @@ services:
 
   mysql:
     container_name: mysql
-    image: bitnami/mysql:{{ mysql_version }}
+    image: bitnami/mysql:{{ mysql|default('8.0.20') }}
     volumes:
       - "./mysql/db:/bitnami/mysql/data"
       - "./mysql/config/my_custom.cnf:/opt/bitnami/mysql/conf/my_custom.cnf:ro"
@@ -40,7 +40,7 @@ services:
   web:
     # app is running at: http://localhost:8080/CMDB
     container_name: web
-    image: mvp1_backend:{{ web_version }}
+    image: mvp1_backend:{{ web|default('latest') }}
     restart: always
     ports:
       - "8080:8080"

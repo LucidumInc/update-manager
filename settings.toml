@@ -10,3 +10,4 @@ docker_compose_executable = "/home/demo/anaconda3/bin/docker-compose"
 archive_config = { docker_images_dir = "docker_images", release_file = "release.json" }
 database_config = {mysql_host='localhost', mysql_user='lucidum', mysql_pwd='gAAAAABer0AMtv0Kl5eOZnoKK0u32X5eTQTjUBs5AktJhQoW25IjKq2REZdSpUOXA30d-JnNaEXkYSqpr3vO7n1MEh8FnZ3hxI4_MtFaWRdPbw9mxYd4ayQ=', mysql_port=3306, mysql_db='lucidum'}
 mongo_config = {mongo_host="localhost", mongo_user="lucidum", mongo_pwd="gAAAAABer0AMtv0Kl5eOZnoKK0u32X5eTQTjUBs5AktJhQoW25IjKq2REZdSpUOXA30d-JnNaEXkYSqpr3vO7n1MEh8FnZ3hxI4_MtFaWRdPbw9mxYd4ayQ=", mongo_port=27017, mongo_db="test_database"}
+aws_region = "us-west-1"

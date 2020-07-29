@@ -73,6 +73,10 @@ def get_demo_pwd() -> str:
     return encrpyt_password(required_field_check("DEMO_PWD"))
 
 
+def get_aws_region():
+    return required_field_check("AWS_REGION")
+
+
 def get_db_config():
     """Get the db config."""
     return {

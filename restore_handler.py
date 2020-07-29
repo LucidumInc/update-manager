@@ -1,6 +1,7 @@
 import fnmatch
 import os
 import subprocess
+import sys
 import tarfile
 import time
 from functools import wraps
@@ -182,4 +183,4 @@ def restore(data: list):
     messages = [f"{name} ({status}): {message}" for name, status, message in results]
     logger.info("Restore process is finished:\n{}", "\n".join(messages))
     if any(status == "failed" for _, status, _ in results):
-        exit(1)
+        sys.exit(1)

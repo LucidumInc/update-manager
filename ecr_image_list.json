@@ -1,7 +1,13 @@
 [
     {
-        "name": "connector-api",
+        "name": "connector-file",
         "version": "latest",
+        "hostPath": "{}/{}/external",
+        "dockerPath": "/tmp/app/external"
+    },
+    {
+        "name": "connector-api",
+        "version": "mcafee_epo",
         "hostPath": "{}/{}/external",
         "dockerPath": "/tmp/app/external"
     },

@@ -1,14 +1,12 @@
 import fnmatch
 import json
 import os
-import tarfile
 import re
 import shutil
 import subprocess
 import sys
 
 import yaml
-from docker import DockerClient
 from jinja2 import Environment, FileSystemLoader
 from loguru import logger
 
@@ -134,13 +132,14 @@ def run_docker_compose() -> None:
 
 
 def update_docker_image(image_data, copy_default):
-    repository = image_data["name"]
-    registry = image_data.get("registry")
-    if registry:
-        repository = f"{registry}/{repository}"
-    image = pull_docker_image(repository, image_data["version"])
+    logger.info(image_data)
+    image_tag = f"{image_data['name']}:{image_data['version']}"
+    _remove_image(image_data['image'])
+    _remove_image(image_tag)
+    image = pull_docker_image(image_data["image"])
     logger.info(f"Updated to latest image, id: {image.short_id} tag: {image.tags}")
-    image.tag(f"{image_data['name']}:{image_data['version']}")
+    image.tag(image_tag)
+    docker_client.images.remove(image_data['image'])
     image.reload()
     host_path, docker_path = image_data.get("hostPath"), image_data.get("dockerPath")
     if copy_default and docker_path and host_path:
@@ -167,26 +166,8 @@ def install(archive_filepath: str) -> None:
         if os.path.isdir(release_dir):
             shutil.rmtree(release_dir)
 
-
-@logger.catch(onerror=lambda _: sys.exit(1))
-def update(json_filepath: str, copy_default: bool, components: tuple) -> None:
-    with open(json_filepath) as f:
-        data = json.load(f)
-    images = data["images"]
-    if components:
-        images = [image for image in images if image["name"] in components]
-    try:
-        for image in images:
-            update_docker_image(image, copy_default)
-            if image["dependency"] == "docker-compose":
-                formatter = format_docker_compose([image])
-                for container in formatter.template_params:
-                    subprocess.run([get_docker_compose_executable(), "restart", container], cwd=get_lucidum_dir(), check=True)
-    except AppError as e:
-        logger.exception(e)
-        sys.exit(1)
-
 # ---------- install ecr adhoc code ----------
+
 
 def get_install_ecr_components():
     ecr_images = get_ecr_images()
@@ -195,39 +176,21 @@ def get_install_ecr_components():
         result.append(ecr_image["name"])
     return result
 
+
+@logger.catch(onerror=lambda _: sys.exit(1))
 def install_ecr(components, copy_default):
-    client = DockerClient.from_env()
     ecr_images = get_ecr_images()
     for ecr_image in ecr_images:
-        if ecr_image["name"] in components:
-            logger.info(ecr_image)
-            ecr_image["rename"] = ecr_image["name"] + ":" + ecr_image["version"]
-            _remove_image(client, ecr_image['image'])
-            _remove_image(client, ecr_image['rename'])
-            image = client.images.pull(ecr_image['image'])
-            logger.info(f"updated to latest image, id: {image.short_id} tag: {image.tags}")
-            if ecr_image["rename"]:
-                image.tag(ecr_image['rename'] )
-                client.images.remove(ecr_image['image'])
-            if copy_default and "dockerPath" in ecr_image and "hostPath" in ecr_image:
-                _check_path(ecr_image['hostPath'])
-                logger.info(f"copy default files from {image.tags} docker f{ecr_image['dockerPath']} to host f{ecr_image['hostPath']}")
-                container = client.containers.create(image, 'bash')
-                bits, stat = container.get_archive(ecr_image['dockerPath'] + '/.')
-                with open(ecr_image['hostPath'] + '/docker.tar', 'wb') as f:
-                    for chunk in bits:
-                        f.write(chunk)
-                tar = tarfile.open(ecr_image["hostPath"] + "/docker.tar")
-                tar.extractall(path=ecr_image["hostPath"] + "/")
-                tar.close()
-                logger.info("clean up")
-                container.remove()
-                os.remove(ecr_image["hostPath"] + "/docker.tar")
+        if ecr_image["name"] not in components:
+            continue
+        update_docker_image(ecr_image, copy_default)
 
-def _remove_image(docker_client, image_name):
+
+def _remove_image(image_name):
     result = docker_client.images.list(image_name)
-    if len(result) > 0:
+    if result:
         docker_client.images.remove(image_name, True)
+
 
 def _check_path(path):
     if not os.path.exists(path):

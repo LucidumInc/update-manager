@@ -131,6 +131,11 @@ def run_docker_compose() -> None:
     subprocess.run([get_docker_compose_executable(), "up", "-d"], cwd=get_lucidum_dir(), check=True)
 
 
+def run_docker_compose_restart(container: str):
+    logger.info("Restarting '{}' container...", container)
+    subprocess.run([shutil.which("docker-compose"), "restart", container], cwd=get_lucidum_dir(), check=True)
+
+
 def update_docker_image(image_data, copy_default):
     logger.info(image_data)
     image_tag = f"{image_data['name']}:{image_data['version']}"
@@ -178,12 +183,14 @@ def get_install_ecr_components():
 
 
 @logger.catch(onerror=lambda _: sys.exit(1))
-def install_ecr(components, copy_default):
+def install_ecr(components, copy_default, restart):
     ecr_images = get_ecr_images()
     for ecr_image in ecr_images:
         if ecr_image["name"] not in components:
             continue
         update_docker_image(ecr_image, copy_default)
+    if restart and "mvp1_backend" in components:
+        run_docker_compose_restart("web")
 
 
 def _remove_image(image_name):

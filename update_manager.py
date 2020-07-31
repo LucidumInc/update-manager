@@ -19,9 +19,10 @@ def install(archive: str) -> None:
 @cli.command()
 @click.option('--components', '-c', required=True, multiple=True, type=click.Choice(get_install_ecr_components()), help="ecr component list")
 @click.option('--copy-default', '-d', default=False, is_flag=True, help='copy default files from docker to host')
-def installecr(components, copy_default) -> None:
+@click.option('--restart', '-r', is_flag=True, help='copy default files from docker to host')
+def installecr(components, copy_default, restart) -> None:
     logger.info(f"ecr components: {components}")
-    install_ecr(components, copy_default)
+    install_ecr(components, copy_default, restart)
 
 
 @cli.command()

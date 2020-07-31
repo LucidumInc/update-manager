@@ -1,5 +1,6 @@
 import fnmatch
 import os
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -10,7 +11,7 @@ from io import BytesIO
 from docker import DockerClient
 from loguru import logger
 
-from config_handler import get_db_config, get_mongo_config, get_lucidum_dir, get_demo_pwd, get_docker_compose_executable
+from config_handler import get_db_config, get_mongo_config, get_lucidum_dir, get_demo_pwd
 from exceptions import AppError
 
 
@@ -87,7 +88,7 @@ class MongoRestoreRunner(BaseRestoreRunner):
     @log_wrap
     def __call__(self):
         lucidum_dir = get_lucidum_dir()
-        docker_compose_executable = get_docker_compose_executable()
+        docker_compose_executable = shutil.which("docker-compose")
         if self._web_stop:
             subprocess.run([docker_compose_executable, "stop", self.web_service], cwd=lucidum_dir, check=True)
         restore_cmd = f"mongorestore -v --username={{mongo_user}} --password={{mongo_pwd}} --authenticationDatabase=test_database --host={{mongo_host}} --port={{mongo_port}} --archive={self.filepath} --gzip --db={{mongo_db}} --drop"
@@ -111,7 +112,7 @@ class LucidumDirRestoreRunner(BaseRestoreRunner):
     @log_wrap
     def __call__(self):
         lucidum_dir = get_lucidum_dir()
-        docker_compose_executable = get_docker_compose_executable()
+        docker_compose_executable = shutil.which("docker-compose")
         subprocess.run([docker_compose_executable, "stop", self.web_service], cwd=lucidum_dir, check=True)
         mysql_dump_file = mongo_dump_file = None
         try:

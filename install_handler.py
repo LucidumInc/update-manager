@@ -10,8 +10,8 @@ import yaml
 from jinja2 import Environment, FileSystemLoader
 from loguru import logger
 
-from config_handler import get_archive_config, get_lucidum_dir, get_docker_compose_executable, \
-    get_jinja_templates_dir, get_docker_compose_tmplt_file, get_ecr_images
+from config_handler import get_archive_config, get_lucidum_dir, get_jinja_templates_dir, \
+    get_docker_compose_tmplt_file, get_ecr_images
 from docker_service import load_docker_images, pull_docker_image, docker_client, copy_files_from_docker_container
 from exceptions import AppError
 
@@ -128,7 +128,7 @@ def format_docker_compose(images: list):
 
 def run_docker_compose() -> None:
     logger.info("Running docker-compose to up lucidum infrastructure...")
-    subprocess.run([get_docker_compose_executable(), "up", "-d"], cwd=get_lucidum_dir(), check=True)
+    subprocess.run([shutil.which("docker-compose"), "up", "-d"], cwd=get_lucidum_dir(), check=True)
 
 
 def run_docker_compose_restart(container: str):

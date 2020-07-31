@@ -53,9 +53,6 @@ def get_lucidum_dir() -> str:
 def get_ecr_base() -> str:
     return required_field_check("ECR_BASE")
 
-def get_docker_compose_executable() -> str:
-    return required_field_check("DOCKER_COMPOSE_EXECUTABLE")
-
 
 def get_backup_dir() -> str:
     return required_field_check("BACKUP_DIR")

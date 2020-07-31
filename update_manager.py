@@ -25,6 +25,12 @@ def installecr(components, copy_default) -> None:
 
 
 @cli.command()
+def init() -> None:
+    from init_handler import init as init_lucidum
+    init_lucidum()
+
+
+@cli.command()
 @click.option("--data", "-d", multiple=True, type=click.Choice(['mysql', 'mongo', 'lucidum']))
 def backup(data: tuple):
     from backup_handler import backup as backup_lucidum

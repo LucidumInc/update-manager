@@ -9,19 +9,26 @@ def cli():
 
 @cli.command()
 @click.option(
-    '--archive','-a', required=True, type=click.Path(exists=True, dir_okay=False),
+    '--archive', '-a', required=True, type=click.Path(exists=True, dir_okay=False),
     help="Archive filepath to use for lucidum installation"
 )
 def install(archive: str) -> None:
-    from install_handler import install as setup_lucidum
-    setup_lucidum(archive)
+    from install_handler import install as install_archive
+    install_archive(archive)
 
 @cli.command()
-@click.option('--components','-c', required=True, multiple=True, type=click.Choice(get_install_ecr_components()), help="ecr component list")
-@click.option('--copy_default', '-d', default=False, help='copy default files from docker to host')
-def installecr(components, copy_default) -> None:
+@click.option('--components', '-c', required=True, multiple=True, type=click.Choice(get_install_ecr_components()), help="ecr component list")
+@click.option('--copy-default', '-d', default=False, is_flag=True, help='copy default files from docker to host')
+@click.option('--restart', '-r', is_flag=True, help='copy default files from docker to host')
+def installecr(components, copy_default, restart) -> None:
     logger.info(f"ecr components: {components}")
-    install_ecr(components, copy_default)
+    install_ecr(components, copy_default, restart)
+
+
+@cli.command()
+def init() -> None:
+    from init_handler import init as init_lucidum
+    init_lucidum()
 
 
 @cli.command()

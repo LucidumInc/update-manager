@@ -147,6 +147,8 @@ def update_docker_image(image_data, copy_default):
     docker_client.images.remove(image_data['image'])
     image.reload()
     host_path, docker_path = image_data.get("hostPath"), image_data.get("dockerPath")
+    if host_path:
+        _check_path(host_path)
     if copy_default and docker_path and host_path:
         copy_files_from_docker_container(image, docker_path, host_path)
 

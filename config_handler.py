@@ -73,6 +73,11 @@ def get_demo_pwd() -> str:
 def get_aws_region():
     return required_field_check("AWS_REGION")
 
+def get_aws_access_key():
+    return settings.get("AWS_ACCESS_KEY")
+
+def get_aws_secret_key():
+    return settings.get("AWS_SECRET_KEY")
 
 def get_db_config():
     """Get the db config."""

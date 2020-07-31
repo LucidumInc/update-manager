@@ -10,7 +10,7 @@ from docker import DockerClient
 from docker.models.images import Image
 from loguru import logger
 
-from config_handler import get_aws_region
+from config_handler import get_aws_region, get_aws_access_key, get_aws_secret_key
 
 ECR_REGISTRY_PATTERN = r"\d{12}\.dkr\.ecr\.[a-z0-9-]+\.amazonaws\.com/.+"
 docker_client = DockerClient.from_env()
@@ -18,6 +18,11 @@ docker_client = DockerClient.from_env()
 
 class ECRClient:
     client = boto3.client("ecr", region_name=get_aws_region())
+    if get_aws_access_key() and get_aws_secret_key():
+        client = boto3.client("ecr",
+                              aws_access_key_id=get_aws_access_key(),
+                              aws_secret_access_key=get_aws_secret_key(),
+                              region_name=get_aws_region())
     _auth_config = None
 
     @classmethod

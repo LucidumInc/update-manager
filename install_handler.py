@@ -151,6 +151,9 @@ def update_docker_image(image_data, copy_default):
         _check_path(host_path)
     if copy_default and docker_path and host_path:
         copy_files_from_docker_container(image, docker_path, host_path)
+    has_env_file = image_data.get("hasEnvFile")
+    if has_env_file:
+        os.link(os.path.join("resources", "connector_env_file"), os.path.join(host_path, ".env"))
 
 
 @logger.catch(onerror=lambda _: sys.exit(1))

@@ -3,13 +3,15 @@
         "name": "connector-file",
         "version": "latest",
         "hostPath": "{}/{}/external",
-        "dockerPath": "/tmp/app/external"
+        "dockerPath": "/tmp/app/external",
+        "hasEnvFile": true
     },
     {
         "name": "connector-api",
         "version": "mcafee_epo",
         "hostPath": "{}/{}/external",
-        "dockerPath": "/tmp/app/external"
+        "dockerPath": "/tmp/app/external",
+        "hasEnvFile": true
     },
     {   "name": "python/ml",
         "version": "latest",

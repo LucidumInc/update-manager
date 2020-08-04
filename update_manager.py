@@ -32,6 +32,14 @@ def init() -> None:
 
 
 @cli.command()
+@click.option('--component', '-c', required=True, help="ecr component")
+@click.option('--cmd', help="command to run inside component")
+def docker_run(component: str, cmd: str) -> None:
+    from docker_run_handler import run
+    run(component, cmd)
+
+
+@cli.command()
 @click.option("--data", "-d", multiple=True, type=click.Choice(['mysql', 'mongo', 'lucidum']))
 def backup(data: tuple):
     from backup_handler import backup as backup_lucidum

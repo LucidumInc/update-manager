@@ -179,12 +179,12 @@ def install(archive_filepath: str) -> None:
 # ---------- install ecr adhoc code ----------
 
 
-def get_install_ecr_components():
+def get_install_ecr_components(filter_=None):
     ecr_images = get_ecr_images()
-    result = []
-    for ecr_image in ecr_images:
-        result.append(ecr_image["name"])
-    return result
+    filter_images = filter_
+    if not filter_images:
+        filter_images = lambda i: True
+    return [ecr_image["name"] for ecr_image in ecr_images if filter_images(ecr_image)]
 
 
 @logger.catch(onerror=lambda _: sys.exit(1))

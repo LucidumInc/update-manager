@@ -151,6 +151,9 @@ def update_docker_image(image_data, copy_default):
         _check_path(host_path)
     if copy_default and docker_path and host_path:
         copy_files_from_docker_container(image, docker_path, host_path)
+    has_env_file = image_data.get("hasEnvFile")
+    if has_env_file:
+        os.link(os.path.join("resources", "connector_env_file"), os.path.join(host_path, ".env"))
 
 
 @logger.catch(onerror=lambda _: sys.exit(1))
@@ -176,12 +179,12 @@ def install(archive_filepath: str) -> None:
 # ---------- install ecr adhoc code ----------
 
 
-def get_install_ecr_components():
+def get_install_ecr_components(filter_=None):
     ecr_images = get_ecr_images()
-    result = []
-    for ecr_image in ecr_images:
-        result.append(ecr_image["name"])
-    return result
+    filter_images = filter_
+    if not filter_images:
+        filter_images = lambda i: True
+    return [ecr_image["name"] for ecr_image in ecr_images if filter_images(ecr_image)]
 
 
 @logger.catch(onerror=lambda _: sys.exit(1))

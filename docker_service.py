@@ -17,13 +17,14 @@ docker_client = DockerClient.from_env()
 
 
 class ECRClient:
-    client = boto3.client("ecr", region_name=get_aws_region())
-    if get_aws_access_key() and get_aws_secret_key():
-        client = boto3.client("ecr",
-                              aws_access_key_id=get_aws_access_key(),
-                              aws_secret_access_key=get_aws_secret_key(),
-                              region_name=get_aws_region())
+    _client = None
     _auth_config = None
+
+    @classmethod
+    def client(cls):
+        if cls._client is None:
+            cls._client = cls._get_ecr_client()
+        return cls._client
 
     @classmethod
     def auth_config(cls):
@@ -36,13 +37,24 @@ class ECRClient:
 
     @classmethod
     def _get_auth_config(cls):
-        response = cls.client.get_authorization_token()
+        response = cls.client().get_authorization_token()
         authorization_data = response["authorizationData"][0]
         credentials = base64.b64decode(authorization_data.pop("authorizationToken")).decode().split(":")
         authorization_data["username"] = credentials[0]
         authorization_data["password"] = credentials[1]
         authorization_data["registry"] = urlparse(authorization_data["proxyEndpoint"]).hostname
         return authorization_data
+
+    @classmethod
+    def _get_ecr_client(cls):
+        kwargs = {
+            "region_name": get_aws_region()
+        }
+        access_key, secret_key = get_aws_access_key(), get_aws_secret_key()
+        if access_key and secret_key:
+            kwargs["aws_access_key_id"] = access_key
+            kwargs["aws_secret_access_key"] = secret_key
+        return boto3.client("ecr", **kwargs)
 
 
 def _pull_docker_image_from_ecr(repository: str, tag: str = None):

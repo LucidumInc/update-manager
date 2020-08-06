@@ -1,24 +1,24 @@
 [
     {
         "name": "connector-file",
-        "version": "latest",
-        "hostPath": "{}/{}/external",
+        "versions": ["latest"],
+        "hostPath": "{base}/{component}_{version}/external",
         "dockerPath": "/tmp/app/external",
         "hasEnvFile": true
     },
     {
         "name": "connector-api",
-        "version": "mcafee_epo",
-        "hostPath": "{}/{}/external",
+        "versions": ["mcafee_epo", "latest"],
+        "hostPath": "{base}/{component}_{version}/external",
         "dockerPath": "/tmp/app/external",
         "hasEnvFile": true
     },
     {   "name": "python/ml",
-        "version": "latest",
-        "hostPath": "{}/{}/custom_rules",
+        "versions": ["latest"],
+        "hostPath": "{base}/ml_merger_{version}/custom_rules",
         "dockerPath": "/home/custom_rules"
     },
     {   "name": "mvp1_backend",
-        "version": "latest"
+        "versions": ["latest"]
     }
 ]

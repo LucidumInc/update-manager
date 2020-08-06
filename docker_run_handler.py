@@ -28,7 +28,7 @@ def run_command(image_data: dict, cmd: str):
 
 @logger.catch(onerror=lambda _: sys.exit(1))
 def run(component: str, cmd: str):
-    image_data = next((image for image in get_ecr_images() if image["name"] == component), None)
+    image_data = next((image for image in get_ecr_images() if f"{image['name']}:{image['version']}" == component), None)
     if not image_data:
         raise AppError(f"Component '{component}' was not found in image list")
     run_command(image_data, cmd)

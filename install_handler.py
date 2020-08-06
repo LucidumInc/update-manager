@@ -136,6 +136,12 @@ def run_docker_compose_restart(container: str):
     subprocess.run([shutil.which("docker-compose"), "restart", container], cwd=get_lucidum_dir(), check=True)
 
 
+def create_hard_link(src, dst):
+    if os.path.exists(dst):
+        return
+    os.link(src, dst)
+
+
 def update_docker_image(image_data, copy_default):
     logger.info(image_data)
     image_tag = f"{image_data['name']}:{image_data['version']}"
@@ -153,7 +159,7 @@ def update_docker_image(image_data, copy_default):
         copy_files_from_docker_container(image, docker_path, host_path)
     has_env_file = image_data.get("hasEnvFile")
     if has_env_file:
-        os.link(os.path.join("resources", "connector_env_file"), os.path.join(host_path, ".env"))
+        create_hard_link(os.path.join("resources", "connector_env_file"), os.path.join(host_path, ".env"))
 
 
 @logger.catch(onerror=lambda _: sys.exit(1))
@@ -184,17 +190,19 @@ def get_install_ecr_components(filter_=None):
     filter_images = filter_
     if not filter_images:
         filter_images = lambda i: True
-    return [ecr_image["name"] for ecr_image in ecr_images if filter_images(ecr_image)]
+    return [
+        f"{ecr_image['name']}:{ecr_image['version']}" for ecr_image in ecr_images if filter_images(ecr_image)
+    ]
 
 
 @logger.catch(onerror=lambda _: sys.exit(1))
 def install_ecr(components, copy_default, restart):
     ecr_images = get_ecr_images()
     for ecr_image in ecr_images:
-        if ecr_image["name"] not in components:
+        if f"{ecr_image['name']}:{ecr_image['version']}" not in components:
             continue
         update_docker_image(ecr_image, copy_default)
-    if restart and "mvp1_backend" in components:
+    if restart and any("mvp1_backend" in component for component in components):
         run_docker_compose_restart("web")
 
 

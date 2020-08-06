@@ -110,11 +110,20 @@ def get_ecr_image_list():
 def get_ecr_images():
     ecr_base = get_ecr_base()
     lucidum_base = get_lucidum_dir()
-    ecr_images = get_ecr_image_list()
-    for ecr_image in ecr_images:
-        if "hostPath" in ecr_image:
-            ecr_image["hostPath"] = ecr_image["hostPath"].format(lucidum_base, ecr_image['name'])
-        if "image" not in ecr_image:
-            ecr_image["image"] = "{}/{}:{}".format(ecr_base, ecr_image["name"], ecr_image["version"])
-    return ecr_images
+    ecr_images = {}
+    for ecr_image in get_ecr_image_list():
+        for version in ecr_image.pop("versions", []):
+            image_name = f"{ecr_image['name']}:{version}"
+            if image_name in ecr_images:
+                continue
+            image = ecr_image.copy()
+            image["version"] = version
+            if "hostPath" in image:
+                image["hostPath"] = image["hostPath"].format(
+                    base=lucidum_base, component=image["name"], version=version
+                )
+            if "image" not in image:
+                image["image"] = "{}/{}:{}".format(ecr_base, image["name"], version)
+            ecr_images[image_name] = image
+    return list(ecr_images.values())
 

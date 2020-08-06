@@ -136,6 +136,12 @@ def run_docker_compose_restart(container: str):
     subprocess.run([shutil.which("docker-compose"), "restart", container], cwd=get_lucidum_dir(), check=True)
 
 
+def create_hard_link(src, dst):
+    if os.path.exists(dst):
+        return
+    os.link(src, dst)
+
+
 def update_docker_image(image_data, copy_default):
     logger.info(image_data)
     image_tag = f"{image_data['name']}:{image_data['version']}"
@@ -153,7 +159,7 @@ def update_docker_image(image_data, copy_default):
         copy_files_from_docker_container(image, docker_path, host_path)
     has_env_file = image_data.get("hasEnvFile")
     if has_env_file:
-        os.link(os.path.join("resources", "connector_env_file"), os.path.join(host_path, ".env"))
+        create_hard_link(os.path.join("resources", "connector_env_file"), os.path.join(host_path, ".env"))
 
 
 @logger.catch(onerror=lambda _: sys.exit(1))

@@ -185,8 +185,8 @@ def install(archive_filepath: str) -> None:
 # ---------- install ecr adhoc code ----------
 
 
-def get_install_ecr_components(filter_=None):
-    ecr_images = get_ecr_images()
+def get_install_ecr_components(filter_=None, get_images=get_ecr_images):
+    ecr_images = get_images()
     filter_images = filter_
     if not filter_images:
         filter_images = lambda i: True
@@ -196,8 +196,8 @@ def get_install_ecr_components(filter_=None):
 
 
 @logger.catch(onerror=lambda _: sys.exit(1))
-def install_ecr(components, copy_default, restart):
-    ecr_images = get_ecr_images()
+def install_ecr(components, copy_default, restart, get_images=get_ecr_images):
+    ecr_images = get_images()
     for ecr_image in ecr_images:
         if f"{ecr_image['name']}:{ecr_image['version']}" not in components:
             continue

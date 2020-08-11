@@ -6,7 +6,10 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from dynaconf import settings
 
+from aws_service import ECRClient
 from exceptions import AppError
+
+ecr_client = ECRClient(settings["AWS_REGION"], settings.get("AWS_ACCESS_KEY"), settings.get("AWS_SECRET_KEY"))
 
 
 def required_field_check(field):
@@ -50,6 +53,7 @@ def get_archive_config() -> dict:
 def get_lucidum_dir() -> str:
     return required_field_check("LUCIDUM_DIR")
 
+
 def get_ecr_base() -> str:
     return required_field_check("ECR_BASE")
 
@@ -69,15 +73,6 @@ def get_docker_compose_tmplt_file() -> str:
 def get_demo_pwd() -> str:
     return encrpyt_password(required_field_check("DEMO_PWD"))
 
-
-def get_aws_region():
-    return required_field_check("AWS_REGION")
-
-def get_aws_access_key():
-    return settings.get("AWS_ACCESS_KEY")
-
-def get_aws_secret_key():
-    return settings.get("AWS_SECRET_KEY")
 
 def get_db_config():
     """Get the db config."""
@@ -127,3 +122,28 @@ def get_ecr_images():
             ecr_images[image_name] = image
     return list(ecr_images.values())
 
+
+def _is_connector(ecr_image):
+    return ecr_image["repositoryName"].startswith("connector") and ecr_image["repositoryName"] != "connector-endpoint"
+
+
+def get_images_from_ecr():
+    lucidum_base = get_lucidum_dir()
+    images = []
+    for repository in ecr_client.get_repositories():
+        for ecr_image in ecr_client.get_images(repository["repositoryName"]):
+            for image_tag in ecr_image["imageTags"]:
+                image = {
+                    "name": ecr_image["repositoryName"],
+                    "version": image_tag,
+                    "image": f"{repository['repositoryUri']}:{image_tag}"
+                }
+                if _is_connector(ecr_image):
+                    image["hostPath"] = f"{lucidum_base}/{ecr_image['repositoryName']}_{image_tag}/external"
+                    image["dockerPath"] = "/tmp/app/external"
+                    image["hasEnvFile"] = True
+                elif ecr_image["repositoryName"] == "python/ml":
+                    image["hostPath"] = f"{lucidum_base}/ml_merger_{image_tag}/custom_rules"
+                    image["dockerPath"] = "/home/custom_rules"
+                images.append(image)
+    return images

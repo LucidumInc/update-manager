@@ -1,65 +1,19 @@
-import base64
 import os
 import re
 import shutil
-from datetime import datetime, timezone
-from urllib.parse import urlparse
 
-import boto3
 from docker import DockerClient
 from docker.models.images import Image
 from loguru import logger
 
-from config_handler import get_aws_region, get_aws_access_key, get_aws_secret_key
+from config_handler import ecr_client
 
 ECR_REGISTRY_PATTERN = r"\d{12}\.dkr\.ecr\.[a-z0-9-]+\.amazonaws\.com/.+"
 docker_client = DockerClient.from_env()
 
 
-class ECRClient:
-    _client = None
-    _auth_config = None
-
-    @classmethod
-    def client(cls):
-        if cls._client is None:
-            cls._client = cls._get_ecr_client()
-        return cls._client
-
-    @classmethod
-    def auth_config(cls):
-        if cls._auth_config is None:
-            cls._auth_config = cls._get_auth_config()
-        else:
-            if datetime.now(timezone.utc) > cls._auth_config["expiresAt"]:
-                cls._auth_config = cls._get_auth_config()
-        return cls._auth_config
-
-    @classmethod
-    def _get_auth_config(cls):
-        response = cls.client().get_authorization_token()
-        authorization_data = response["authorizationData"][0]
-        credentials = base64.b64decode(authorization_data.pop("authorizationToken")).decode().split(":")
-        authorization_data["username"] = credentials[0]
-        authorization_data["password"] = credentials[1]
-        authorization_data["registry"] = urlparse(authorization_data["proxyEndpoint"]).hostname
-        return authorization_data
-
-    @classmethod
-    def _get_ecr_client(cls):
-        kwargs = {
-            "region_name": get_aws_region()
-        }
-        access_key, secret_key = get_aws_access_key(), get_aws_secret_key()
-        if access_key and secret_key:
-            kwargs["aws_access_key_id"] = access_key
-            kwargs["aws_secret_access_key"] = secret_key
-        return boto3.client("ecr", **kwargs)
-
-
 def _pull_docker_image_from_ecr(repository: str, tag: str = None):
-    auth = ECRClient.auth_config()
-    auth_config = {"username": auth["username"], "password": auth["password"]}
+    auth_config = {"username": ecr_client.auth_config["username"], "password": ecr_client.auth_config["password"]}
     docker_client.images.pull(repository, tag=tag, auth_config=auth_config)
 
 

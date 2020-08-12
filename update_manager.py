@@ -2,6 +2,7 @@ import click
 from loguru import logger
 
 from config_handler import get_images_from_ecr
+from history_handler import history_command, get_install_ecr_entries, get_history_command_choices
 from install_handler import install_ecr, get_install_ecr_components
 logger.add("logs/job_{time}.log", rotation="1 day", retention="30 days", diagnose=True)
 
@@ -35,6 +36,7 @@ def installecr(components, copy_default, restart) -> None:
 @click.option('--copy-default', '-d', default=False, is_flag=True, help='copy default files from docker to host')
 @click.option('--restart', '-r', is_flag=True, help='restart web container')
 @click.option('--install', '-i', is_flag=True, help='install components')
+@history_command(command="ecr", get_history_entries=get_install_ecr_entries, get_images=get_images_from_ecr)
 def ecr(components, copy_default, restart, install):
     logger.info(f"ecr components: {components}")
     if install:
@@ -56,6 +58,13 @@ def init() -> None:
 def docker_run(component: str, cmd: str) -> None:
     from docker_run_handler import run
     run(component, cmd)
+
+
+@cli.command()
+@click.option("--command", "-c", type=click.Choice(get_history_command_choices()), help="command to retrieve history for")
+def history(command: str):
+    from history_handler import run
+    run(command)
 
 
 @cli.command()

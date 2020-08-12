@@ -5,6 +5,7 @@ import re
 import shutil
 import subprocess
 import sys
+from datetime import datetime
 
 import yaml
 from jinja2 import Environment, FileSystemLoader
@@ -206,9 +207,32 @@ def install_ecr(components, copy_default, restart, get_images=get_ecr_images):
         run_docker_compose_restart("web")
 
 
+@logger.catch(onerror=lambda _: sys.exit(1))
+def remove_ecr(components, get_images=get_ecr_images):
+    lucidum_dir = get_lucidum_dir()
+    ecr_images = get_images()
+    for ecr_image in ecr_images:
+        component = f"{ecr_image['name']}:{ecr_image['version']}"
+        if component not in components:
+            continue
+        host_path = ecr_image.get("hostPath")
+        if host_path and os.path.exists(host_path) and os.path.isdir(host_path):
+            archive_dir = os.path.join(lucidum_dir, "archive")
+            rel_path = host_path.split(f'{lucidum_dir}/')[-1]
+            copy_rel_path = f"{rel_path}_{datetime.now().strftime('%m-%d-%Y_%H_%M_%S')}"
+            copy_path = os.path.join(archive_dir, copy_rel_path)
+            logger.info("Copying '{}' directory to '{}' directory...", host_path, copy_path)
+            shutil.copytree(host_path, copy_path)
+            rm_path = os.path.join(lucidum_dir, rel_path.split("/")[0])
+            logger.info("Removing '{}' directory...", rm_path)
+            shutil.rmtree(rm_path)
+            _remove_image(component)
+
+
 def _remove_image(image_name):
     result = docker_client.images.list(image_name)
     if result:
+        logger.info("Removing '{}' image...", image_name)
         docker_client.images.remove(image_name, True)
 
 

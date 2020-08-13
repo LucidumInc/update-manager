@@ -123,8 +123,20 @@ def get_ecr_images():
     return list(ecr_images.values())
 
 
-def _is_connector(ecr_image):
-    return ecr_image["repositoryName"].startswith("connector") and ecr_image["repositoryName"] != "connector-endpoint"
+def _is_connector(image_name):
+    return image_name.startswith("connector") and image_name != "connector-endpoint"
+
+
+def get_image_path_mapping(lucidum_dir, image_name, image_tag):
+    path_mapping = {}
+    if _is_connector(image_name):
+        path_mapping["hostPath"] = f"{lucidum_dir}/{image_name}_{image_tag}/external"
+        path_mapping["dockerPath"] = "/tmp/app/external"
+        path_mapping["hasEnvFile"] = True
+    elif image_name == "python/ml":
+        path_mapping["hostPath"] = f"{lucidum_dir}/ml_merger_{image_tag}/custom_rules"
+        path_mapping["dockerPath"] = "/home/custom_rules"
+    return path_mapping
 
 
 def get_images_from_ecr():
@@ -138,12 +150,6 @@ def get_images_from_ecr():
                     "version": image_tag,
                     "image": f"{repository['repositoryUri']}:{image_tag}"
                 }
-                if _is_connector(ecr_image):
-                    image["hostPath"] = f"{lucidum_base}/{ecr_image['repositoryName']}_{image_tag}/external"
-                    image["dockerPath"] = "/tmp/app/external"
-                    image["hasEnvFile"] = True
-                elif ecr_image["repositoryName"] == "python/ml":
-                    image["hostPath"] = f"{lucidum_base}/ml_merger_{image_tag}/custom_rules"
-                    image["dockerPath"] = "/home/custom_rules"
+                image.update(get_image_path_mapping(lucidum_base, ecr_image['repositoryName'], image_tag))
                 images.append(image)
     return images

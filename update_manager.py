@@ -3,7 +3,7 @@ from loguru import logger
 
 from config_handler import get_images_from_ecr
 from history_handler import history_command, get_install_ecr_entries, get_history_command_choices
-from install_handler import install_ecr, get_install_ecr_components, remove_ecr
+from install_handler import install_ecr, get_components, remove_components, get_local_images
 logger.add("logs/job_{time}.log", rotation="1 day", retention="30 days", diagnose=True)
 
 @click.group()
@@ -20,7 +20,7 @@ def install(archive: str) -> None:
     install_archive(archive)
 
 @cli.command()
-@click.option('--components', '-c', required=True, multiple=True, type=click.Choice(get_install_ecr_components()), help="ecr component list")
+@click.option('--components', '-c', required=True, multiple=True, type=click.Choice(get_components()), help="ecr component list")
 @click.option('--copy-default', '-d', default=False, is_flag=True, help='copy default files from docker to host')
 @click.option('--restart', '-r', is_flag=True, help='restart web container')
 def installecr(components, copy_default, restart) -> None:
@@ -31,19 +31,24 @@ def installecr(components, copy_default, restart) -> None:
 @cli.command()
 @click.option(
     '--components', '-c', required=True, multiple=True,
-    type=click.Choice(get_install_ecr_components(get_images=get_images_from_ecr)), help="ecr component list"
+    type=click.Choice(get_components(get_images=get_images_from_ecr)), help="ecr component list"
 )
 @click.option('--copy-default', '-d', default=False, is_flag=True, help='copy default files from docker to host')
 @click.option('--restart', '-r', is_flag=True, help='restart web container')
-@click.option('--install', '-i', is_flag=True, help='install components')
-@click.option('--remove', '-rm', is_flag=True, help='remove components')
 @history_command(command="ecr", get_history_entries=get_install_ecr_entries, get_images=get_images_from_ecr)
-def ecr(components, copy_default, restart, install, remove):
+def ecr(components, copy_default, restart):
     logger.info(f"ecr components: {components}")
-    if install:
-        install_ecr(components, copy_default, restart, get_images=get_images_from_ecr)
-    elif remove:
-        remove_ecr(components, get_images=get_images_from_ecr)
+    install_ecr(components, copy_default, restart, get_images=get_images_from_ecr)
+
+
+@cli.command()
+@click.option(
+    '--components', '-c', required=True, multiple=True,
+    type=click.Choice(get_components(get_images=get_local_images)), help="component list"
+)
+def remove(components):
+    logger.info("Components to remove: {}", components)
+    remove_components(components)
 
 
 @cli.command()
@@ -55,7 +60,7 @@ def init() -> None:
 @cli.command()
 @click.option(
     '--component', '-c', required=True,
-    type=click.Choice(get_install_ecr_components(lambda i: i.get("hasEnvFile"))), help="ecr component"
+    type=click.Choice(get_components(lambda i: i.get("hasEnvFile"))), help="ecr component"
 )
 @click.option('--cmd', help="command to run inside component")
 def docker_run(component: str, cmd: str) -> None:

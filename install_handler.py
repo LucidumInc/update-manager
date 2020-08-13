@@ -12,7 +12,7 @@ from jinja2 import Environment, FileSystemLoader
 from loguru import logger
 
 from config_handler import get_archive_config, get_lucidum_dir, get_jinja_templates_dir, \
-    get_docker_compose_tmplt_file, get_ecr_images
+    get_docker_compose_tmplt_file, get_ecr_images, get_image_path_mapping
 from docker_service import load_docker_images, pull_docker_image, docker_client, copy_files_from_docker_container
 from exceptions import AppError
 
@@ -186,7 +186,7 @@ def install(archive_filepath: str) -> None:
 # ---------- install ecr adhoc code ----------
 
 
-def get_install_ecr_components(filter_=None, get_images=get_ecr_images):
+def get_components(filter_=None, get_images=get_ecr_images):
     ecr_images = get_images()
     filter_images = filter_
     if not filter_images:
@@ -194,6 +194,21 @@ def get_install_ecr_components(filter_=None, get_images=get_ecr_images):
     return [
         f"{ecr_image['name']}:{ecr_image['version']}" for ecr_image in ecr_images if filter_images(ecr_image)
     ]
+
+
+def get_local_images():
+    lucidum_dir = get_lucidum_dir()
+    images = []
+    for image in docker_client.images.list():
+        for imageTag in image.tags:
+            data = imageTag.split(":")
+            image_data = {
+                "name": data[0],
+                "version": data[1],
+            }
+            image_data.update(get_image_path_mapping(lucidum_dir, data[0], data[1]))
+            images.append(image_data)
+    return images
 
 
 @logger.catch(onerror=lambda _: sys.exit(1))
@@ -208,14 +223,14 @@ def install_ecr(components, copy_default, restart, get_images=get_ecr_images):
 
 
 @logger.catch(onerror=lambda _: sys.exit(1))
-def remove_ecr(components, get_images=get_ecr_images):
+def remove_components(components):
     lucidum_dir = get_lucidum_dir()
-    ecr_images = get_images()
-    for ecr_image in ecr_images:
-        component = f"{ecr_image['name']}:{ecr_image['version']}"
+    images = get_local_images()
+    for image in images:
+        component = f"{image['name']}:{image['version']}"
         if component not in components:
             continue
-        host_path = ecr_image.get("hostPath")
+        host_path = image.get("hostPath")
         if host_path and os.path.exists(host_path) and os.path.isdir(host_path):
             archive_dir = os.path.join(lucidum_dir, "archive")
             rel_path = host_path.split(f'{lucidum_dir}/')[-1]
@@ -226,7 +241,7 @@ def remove_ecr(components, get_images=get_ecr_images):
             rm_path = os.path.join(lucidum_dir, rel_path.split("/")[0])
             logger.info("Removing '{}' directory...", rm_path)
             shutil.rmtree(rm_path)
-            _remove_image(component)
+        _remove_image(component)
 
 
 def _remove_image(image_name):

@@ -10,9 +10,10 @@ from datetime import datetime
 import yaml
 from jinja2 import Environment, FileSystemLoader
 from loguru import logger
+from tabulate import tabulate
 
 from config_handler import get_archive_config, get_lucidum_dir, get_jinja_templates_dir, \
-    get_docker_compose_tmplt_file, get_ecr_images, get_image_path_mapping
+    get_docker_compose_tmplt_file, get_ecr_images, get_image_path_mapping, get_images_from_ecr
 from docker_service import load_docker_images, pull_docker_image, docker_client, copy_files_from_docker_container
 from exceptions import AppError
 
@@ -242,6 +243,41 @@ def remove_components(components):
             logger.info("Removing '{}' directory...", rm_path)
             shutil.rmtree(rm_path)
         _remove_image(component)
+
+
+@logger.catch(onerror=lambda _: sys.exit(1))
+def list_components():
+    local_images = get_local_images()
+    ecr_images = get_images_from_ecr()
+
+    result = {}
+    for image in ecr_images:
+        component = f"{image['name']}:{image['version']}"
+        host_path = image.get("hostPath")
+        result[component] = {
+            "ecr_image": component,
+            "local_image": None,
+            "host_path": host_path if host_path and os.path.exists(host_path) else None
+        }
+
+    for image in local_images:
+        component = f"{image['name']}:{image['version']}"
+        host_path = image.get("hostPath")
+        host_path = host_path if host_path and os.path.exists(host_path) else None
+        if component in result:
+            result[component]["local_image"] = component
+            result[component]["host_path"] = result[component]["host_path"] or host_path
+        else:
+            result[component] = {
+                "ecr_image": None,
+                "local_image": component,
+                "host_path": host_path
+            }
+
+    print(tabulate(
+        [[c["ecr_image"], c["local_image"], c["host_path"]] for c in result.values()],
+        headers=["ECR Image", "Local Image", "Local Folder"], tablefmt="orgtbl", missingval="na"
+    ))
 
 
 def _remove_image(image_name):

@@ -5,13 +5,15 @@ import re
 import shutil
 import subprocess
 import sys
+from datetime import datetime
 
 import yaml
 from jinja2 import Environment, FileSystemLoader
 from loguru import logger
+from tabulate import tabulate
 
 from config_handler import get_archive_config, get_lucidum_dir, get_jinja_templates_dir, \
-    get_docker_compose_tmplt_file, get_ecr_images
+    get_docker_compose_tmplt_file, get_ecr_images, get_image_path_mapping, get_images_from_ecr
 from docker_service import load_docker_images, pull_docker_image, docker_client, copy_files_from_docker_container
 from exceptions import AppError
 
@@ -185,7 +187,7 @@ def install(archive_filepath: str) -> None:
 # ---------- install ecr adhoc code ----------
 
 
-def get_install_ecr_components(filter_=None, get_images=get_ecr_images):
+def get_components(filter_=None, get_images=get_ecr_images):
     ecr_images = get_images()
     filter_images = filter_
     if not filter_images:
@@ -193,6 +195,21 @@ def get_install_ecr_components(filter_=None, get_images=get_ecr_images):
     return [
         f"{ecr_image['name']}:{ecr_image['version']}" for ecr_image in ecr_images if filter_images(ecr_image)
     ]
+
+
+def get_local_images():
+    lucidum_dir = get_lucidum_dir()
+    images = []
+    for image in docker_client.images.list():
+        for imageTag in image.tags:
+            data = imageTag.split(":")
+            image_data = {
+                "name": data[0],
+                "version": data[1],
+            }
+            image_data.update(get_image_path_mapping(lucidum_dir, data[0], data[1]))
+            images.append(image_data)
+    return images
 
 
 @logger.catch(onerror=lambda _: sys.exit(1))
@@ -206,9 +223,67 @@ def install_ecr(components, copy_default, restart, get_images=get_ecr_images):
         run_docker_compose_restart("web")
 
 
+@logger.catch(onerror=lambda _: sys.exit(1))
+def remove_components(components):
+    lucidum_dir = get_lucidum_dir()
+    images = get_local_images()
+    for image in images:
+        component = f"{image['name']}:{image['version']}"
+        if component not in components:
+            continue
+        host_path = image.get("hostPath")
+        if host_path and os.path.exists(host_path) and os.path.isdir(host_path):
+            archive_dir = os.path.join(lucidum_dir, "archive")
+            rel_path = host_path.split(f'{lucidum_dir}/')[-1]
+            copy_rel_path = f"{rel_path}_{datetime.now().strftime('%m-%d-%Y_%H_%M_%S')}"
+            copy_path = os.path.join(archive_dir, copy_rel_path)
+            logger.info("Copying '{}' directory to '{}' directory...", host_path, copy_path)
+            shutil.copytree(host_path, copy_path)
+            rm_path = os.path.join(lucidum_dir, rel_path.split("/")[0])
+            logger.info("Removing '{}' directory...", rm_path)
+            shutil.rmtree(rm_path)
+        _remove_image(component)
+
+
+@logger.catch(onerror=lambda _: sys.exit(1))
+def list_components():
+    local_images = get_local_images()
+    ecr_images = get_images_from_ecr()
+
+    result = {}
+    for image in ecr_images:
+        component = f"{image['name']}:{image['version']}"
+        host_path = image.get("hostPath")
+        result[component] = {
+            "ecr_image": component,
+            "local_image": None,
+            "host_path": host_path if host_path and os.path.exists(host_path) else None
+        }
+
+    for image in local_images:
+        component = f"{image['name']}:{image['version']}"
+        host_path = image.get("hostPath")
+        host_path = host_path if host_path and os.path.exists(host_path) else None
+        if component in result:
+            result[component]["local_image"] = component
+            result[component]["host_path"] = result[component]["host_path"] or host_path
+        else:
+            result[component] = {
+                "ecr_image": None,
+                "local_image": component,
+                "host_path": host_path
+            }
+
+    print(tabulate(
+        [[c["ecr_image"], c["local_image"], c["host_path"]] for c in result.values()],
+        headers=["ECR Image", "Local Image", "Local Folder"], tablefmt="orgtbl", missingval="na"
+    ))
+
+
 def _remove_image(image_name):
     result = docker_client.images.list(image_name)
     if result:
+        logger.info("Removing '{}' image...", image_name)
         docker_client.images.remove(image_name, True)
 
 

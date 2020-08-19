@@ -80,7 +80,7 @@ def history(command: str):
 
 
 @cli.command()
-@click.option("--output", "-o", type=click.Choice(["mongo"]), help="data source")
+@click.option("--output", "-o", required=True, type=click.Choice(["mongo"]), help="data source")
 def connector(output: str):
     from connector_handler import run
     run(output)

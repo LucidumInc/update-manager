@@ -80,6 +80,13 @@ def history(command: str):
 
 
 @cli.command()
+@click.option("--output", "-o", type=click.Choice(["mongo"]))
+def connector(output: str):
+    from connector_handler import run
+    run(output)
+
+
+@cli.command()
 @click.option("--data", "-d", multiple=True, type=click.Choice(['mysql', 'mongo', 'lucidum']))
 def backup(data: tuple):
     from backup_handler import backup as backup_lucidum

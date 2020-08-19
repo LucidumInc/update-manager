@@ -4,11 +4,13 @@ import json
 from cryptography.fernet import Fernet
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
+from docker import DockerClient
 from dynaconf import settings
 
 from aws_service import ECRClient
 from exceptions import AppError
 
+docker_client = DockerClient.from_env()
 ecr_client = ECRClient(settings["AWS_REGION"], settings.get("AWS_ACCESS_KEY"), settings.get("AWS_SECRET_KEY"))
 
 
@@ -152,4 +154,19 @@ def get_images_from_ecr():
                 }
                 image.update(get_image_path_mapping(lucidum_base, ecr_image['repositoryName'], image_tag))
                 images.append(image)
+    return images
+
+
+def get_local_images():
+    lucidum_dir = get_lucidum_dir()
+    images = []
+    for image in docker_client.images.list():
+        for imageTag in image.tags:
+            data = imageTag.split(":")
+            image_data = {
+                "name": data[0],
+                "version": data[1],
+            }
+            image_data.update(get_image_path_mapping(lucidum_dir, data[0], data[1]))
+            images.append(image_data)
     return images

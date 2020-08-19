@@ -1,9 +1,9 @@
 import click
 from loguru import logger
 
-from config_handler import get_images_from_ecr
+from config_handler import get_images_from_ecr, get_local_images
 from history_handler import history_command, get_install_ecr_entries, get_history_command_choices
-from install_handler import install_ecr, get_components, remove_components, get_local_images, list_components
+from install_handler import install_ecr, get_components, remove_components, list_components
 logger.add("logs/job_{time}.log", rotation="1 day", retention="30 days", diagnose=True)
 
 @click.group()

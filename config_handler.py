@@ -146,7 +146,7 @@ def get_images_from_ecr():
     images = []
     for repository in ecr_client.get_repositories():
         for ecr_image in ecr_client.get_images(repository["repositoryName"]):
-            for image_tag in ecr_image["imageTags"]:
+            for image_tag in ecr_image.get("imageTags", []):
                 image = {
                     "name": ecr_image["repositoryName"],
                     "version": image_tag,

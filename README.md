@@ -53,6 +53,14 @@ Options:
 - -c, --command: name of command to get history for [required]
 - --help: document this command with list of commands with history [not required]
 
+## Write local connector and bridge information to data source
+```shell script
+$ python update_manager.py connector [OPTIONS]
+```
+Options:
+- -o, --output: data source [required]
+- --help: document this command with list of available data sources [not required]
+
 ## Setup lucidum folder 
 > cp resources/docker-compose_file ../docker-compose.yml\
 > cp resources/env_file ../.env\

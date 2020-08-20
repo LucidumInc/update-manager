@@ -2,8 +2,7 @@ import sys
 
 from loguru import logger
 
-from config_handler import get_ecr_images
-from docker_service import docker_client
+from config_handler import get_ecr_images, docker_client
 from exceptions import AppError
 
 NETWORK = "lucidum_default"

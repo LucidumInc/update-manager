@@ -13,8 +13,9 @@ from loguru import logger
 from tabulate import tabulate
 
 from config_handler import get_archive_config, get_lucidum_dir, get_jinja_templates_dir, \
-    get_docker_compose_tmplt_file, get_ecr_images, get_image_path_mapping, get_images_from_ecr
-from docker_service import load_docker_images, pull_docker_image, docker_client, copy_files_from_docker_container
+    get_docker_compose_tmplt_file, get_ecr_images, get_images_from_ecr, docker_client, \
+    get_local_images
+from docker_service import load_docker_images, pull_docker_image, copy_files_from_docker_container
 from exceptions import AppError
 
 _jinja_env = Environment(loader=FileSystemLoader(get_jinja_templates_dir()))
@@ -195,21 +196,6 @@ def get_components(filter_=None, get_images=get_ecr_images):
     return [
         f"{ecr_image['name']}:{ecr_image['version']}" for ecr_image in ecr_images if filter_images(ecr_image)
     ]
-
-
-def get_local_images():
-    lucidum_dir = get_lucidum_dir()
-    images = []
-    for image in docker_client.images.list():
-        for imageTag in image.tags:
-            data = imageTag.split(":")
-            image_data = {
-                "name": data[0],
-                "version": data[1],
-            }
-            image_data.update(get_image_path_mapping(lucidum_dir, data[0], data[1]))
-            images.append(image_data)
-    return images
 
 
 @logger.catch(onerror=lambda _: sys.exit(1))

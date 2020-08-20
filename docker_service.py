@@ -2,14 +2,12 @@ import os
 import re
 import shutil
 
-from docker import DockerClient
 from docker.models.images import Image
 from loguru import logger
 
-from config_handler import ecr_client
+from config_handler import ecr_client, docker_client
 
 ECR_REGISTRY_PATTERN = r"\d{12}\.dkr\.ecr\.[a-z0-9-]+\.amazonaws\.com/.+"
-docker_client = DockerClient.from_env()
 
 
 def _pull_docker_image_from_ecr(repository: str, tag: str = None):

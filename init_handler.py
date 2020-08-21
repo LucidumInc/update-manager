@@ -27,9 +27,16 @@ def create_directory(dir_):
     return False
 
 
-def copy_file(from_, to):
-    shutil.copyfile(from_, to)
-    logger.info("Copied {} file to {} file", from_, to)
+def copy_file(from_, to, force=False):
+    if os.path.exists(to):
+        if force:
+            shutil.copyfile(from_, to)
+            logger.info("Copied {} file to {} file", from_, to)
+        else:
+            logger.info("File exists: {}", to)
+    else:
+        shutil.copyfile(from_, to)
+        logger.info("Copied {} file to {} file", from_, to)
 
 
 def create_mongo_directory(base_dir):

@@ -125,13 +125,13 @@ def get_ecr_images():
     return list(ecr_images.values())
 
 
-def _is_connector(image_name):
+def is_connector(image_name):
     return image_name.startswith("connector") and image_name != "connector-endpoint"
 
 
 def get_image_path_mapping(lucidum_dir, image_name, image_tag):
     path_mapping = {}
-    if _is_connector(image_name):
+    if is_connector(image_name):
         path_mapping["hostPath"] = f"{lucidum_dir}/{image_name}_{image_tag}/external"
         path_mapping["dockerPath"] = "/tmp/app/external"
         path_mapping["hasEnvFile"] = True

@@ -69,7 +69,7 @@ def _get_connector_aws_bridges(path):
 def run(output):
     images = get_local_images()
     if not any(is_connector(image["name"]) for image in images):
-        logger.info("No connectors found")
+        logger.warning("No connectors found")
         return
     logger.info("Writing connectors bridge information to '{}' source...", output)
     output_manager = _get_output_manager(output)

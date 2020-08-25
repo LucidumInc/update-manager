@@ -64,9 +64,10 @@ def init() -> None:
 @cli.command()
 @click.option(
     '--component', '-c', required=True,
-    type=click.Choice(get_components(lambda i: i.get("hasEnvFile"))), help="ecr component"
+    type=click.Choice(get_components(filter_=lambda i: i.get("hasEnvFile"), get_images=get_local_images)),
+    help="ecr component"
 )
-@click.option('--cmd', help="command to run inside component")
+@click.option('--cmd', required=True, help="command to run inside component")
 def docker_run(component: str, cmd: str) -> None:
     from docker_run_handler import run
     run(component, cmd)

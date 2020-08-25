@@ -6,7 +6,7 @@ from urllib.parse import quote_plus
 from loguru import logger
 from pymongo import MongoClient
 
-from config_handler import get_local_images, get_mongo_config
+from config_handler import get_local_images, get_mongo_config, is_connector
 
 
 class MongoDBClient:
@@ -26,6 +26,9 @@ class MongoDBClient:
 
     def insert(self, collection, data):
         return collection.insert_one(data)
+
+    def drop(self, collection):
+        return collection.drop()
 
 
 mongo_client = MongoDBClient(**get_mongo_config())
@@ -64,15 +67,19 @@ def _get_connector_aws_bridges(path):
 
 @logger.catch(onerror=lambda _: sys.exit(1))
 def run(output):
+    images = get_local_images()
+    if not any(is_connector(image["name"]) for image in images):
+        logger.warning("No connectors found")
+        return
     logger.info("Writing connectors bridge information to '{}' source...", output)
     output_manager = _get_output_manager(output)
-    images = get_local_images()
+    collection = "localConnector"
+    output_manager.drop(output_manager.client.test_database[collection])
     for image in images:
         host_path = image.get("hostPath")
         if image["name"] == "connector-aws" and host_path and os.path.exists(host_path):
             data = _get_connector_aws_bridges(host_path)
             logger.info("{} bridge information:\n{}", image["name"], json.dumps(data, indent=2))
-            collection = "localConnector"
             result = output_manager.insert(output_manager.client.test_database[collection], data)
             logger.info(
                 "{} bridge information was written to {} collection: {}", image["name"], collection, result.inserted_id

@@ -73,7 +73,7 @@ def run(output):
         return
     logger.info("Writing connectors bridge information to '{}' source...", output)
     output_manager = _get_output_manager(output)
-    collection = "localConnector"
+    collection = "local_connector"
     output_manager.drop(output_manager.client.test_database[collection])
     for image in images:
         host_path = image.get("hostPath")

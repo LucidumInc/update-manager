@@ -136,8 +136,9 @@ def run_docker_compose() -> None:
 
 def run_docker_compose_restart(container: str):
     logger.info("Restarting '{}' container...", container)
-    subprocess.run([shutil.which("docker-compose"), "rm", "-f", "-s", "-v", container], cwd=get_lucidum_dir(), check=True)
-    subprocess.run([shutil.which("docker-compose"), "up", "-d"], cwd=get_lucidum_dir(), check=True)
+    lucidum_dir = get_lucidum_dir()
+    subprocess.run([shutil.which("docker-compose"), "rm", "-f", "-s", "-v", container], cwd=lucidum_dir, check=True)
+    subprocess.run([shutil.which("docker-compose"), "up", "-d"], cwd=lucidum_dir, check=True)
 
 
 def create_hard_link(src, dst):

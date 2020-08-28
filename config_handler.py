@@ -98,10 +98,7 @@ def get_mongo_config():
 
 
 def get_ecr_image_list():
-    json_file = settings.get('ECR_IMAGE_LIST')
-    if not os.path.exists(json_file):
-        raise FileNotFoundError(json_file)
-    return json.load(open(json_file))
+    return []
 
 
 def get_ecr_images():

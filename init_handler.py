@@ -10,6 +10,7 @@ from exceptions import AppError
 
 
 def change_permissions_recursive(path, mode):
+    os.chmod(path, mode)
     for root, dirs, files in os.walk(path):
         for dir_ in dirs:
             os.chmod(os.path.join(root, dir_), mode)
@@ -63,7 +64,13 @@ def create_web_directory(base_dir):
     web_dir = os.path.join(base_dir, "web")
     created = create_directory(web_dir)
     create_directory(os.path.join(web_dir, "app", "logs"))
-    create_directory(os.path.join(web_dir, "app", "hostdata"))
+    hostdata_dir = os.path.join(web_dir, "app", "hostdata")
+    create_directory(hostdata_dir)
+    conf_dir = os.path.join(web_dir, "app", "conf")
+    create_directory(conf_dir)
+    copy_file(os.path.join("resources", "cert.pem"), os.path.join(hostdata_dir, "cert.pem"))
+    copy_file(os.path.join("resources", "key.pem"), os.path.join(hostdata_dir, "key.pem"))
+    copy_file(os.path.join("resources", "server.xml"), os.path.join(conf_dir, "server.xml"))
     if created:
         change_permissions_recursive(web_dir, 0o777)
     return web_dir

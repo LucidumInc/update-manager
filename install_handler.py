@@ -141,6 +141,13 @@ def run_docker_compose_restart(container: str):
     subprocess.run([shutil.which("docker-compose"), "up", "-d"], cwd=lucidum_dir, check=True)
 
 
+def restart_docker_compose_services():
+    logger.info("Restarting docker-compose services...")
+    lucidum_dir = get_lucidum_dir()
+    subprocess.run([shutil.which("docker-compose"), "down"], cwd=lucidum_dir, check=True)
+    subprocess.run([shutil.which("docker-compose"), "up", "-d"], cwd=lucidum_dir, check=True)
+
+
 def create_hard_link(src, dst):
     if os.path.exists(dst):
         return
@@ -208,7 +215,7 @@ def install_ecr(components, copy_default, restart, get_images=get_ecr_images):
             continue
         update_docker_image(ecr_image, copy_default)
     if restart and any("mvp1_backend" in component for component in components):
-        run_docker_compose_restart("web")
+        restart_docker_compose_services()
 
 
 @logger.catch(onerror=lambda _: sys.exit(1))

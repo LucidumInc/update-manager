@@ -68,8 +68,8 @@ def create_web_directory(base_dir):
     create_directory(hostdata_dir)
     conf_dir = os.path.join(web_dir, "app", "conf")
     create_directory(conf_dir)
-    copy_file(os.path.join("resources", "cert.pem"), os.path.join(hostdata_dir, "cert.pem"))
-    copy_file(os.path.join("resources", "key.pem"), os.path.join(hostdata_dir, "key.pem"))
+    copy_file(os.path.join("resources", "server.pem"), os.path.join(hostdata_dir, "server.pem"))
+    copy_file(os.path.join("resources", "server_private.pem"), os.path.join(hostdata_dir, "server_private.pem"))
     copy_file(os.path.join("resources", "server.xml"), os.path.join(conf_dir, "server.xml"))
     if created:
         change_permissions_recursive(web_dir, 0o777)

@@ -1,3 +1,4 @@
+import shutil
 import subprocess
 import sys
 from datetime import datetime
@@ -54,6 +55,8 @@ class MySQLBackupRunner(BaseBackupRunner):
 
 class MongoBackupRunner(BaseBackupRunner):
     backup_file_format = "mongo_dump_{date}.gz"
+    container_dir = "/bitnami/mongodb"
+    host_dir = "{}/mongo/db"
 
     def __init__(self, name: str, client: DockerClient, backup_dir: str = None) -> None:
         super().__init__(name, backup_dir=backup_dir)
@@ -61,19 +64,36 @@ class MongoBackupRunner(BaseBackupRunner):
 
     def __call__(self):
         container = self._client.containers.get("mongo")
-        dump_cmd = "mongodump --username={mongo_user} --password={mongo_pwd} --authenticationDatabase=test_database --host={mongo_host} --port={mongo_port} --forceTableScan --archive --gzip --db={mongo_db}"
+        filename = os.path.basename(self.backup_file)
+        dump_cmd = f"mongodump --username={{mongo_user}} --password={{mongo_pwd}} --authenticationDatabase=test_database --host={{mongo_host}} --port={{mongo_port}} --forceTableScan --archive={self.container_dir}/{filename} --gzip --db={{mongo_db}}"
         logger.info("Dumping data for '{}' into {} file...", self.name, self.backup_file)
-        result = container.exec_run(dump_cmd.format(**get_mongo_config()))
-        if result.exit_code:
-            raise AppError(result.output.decode('utf-8'))
-        with open(self.backup_file, "wb") as f:
-            f.write(result.output)
+        try:
+            result = container.exec_run(dump_cmd.format(**get_mongo_config()))
+            if result.exit_code:
+                raise AppError(result.output.decode('utf-8'))
+            shutil.copyfile(os.path.join(self.host_dir.format(get_lucidum_dir()), filename), self.backup_file)
+        finally:
+            rm_result = container.exec_run(f"rm {self.container_dir}/{filename}", user='root')
+            if rm_result.exit_code:
+                logger.warning(rm_result.output.decode('utf-8'))
         logger.info("'{}' backup data is saved to {}", self.name, self.backup_file)
         return self.backup_file
 
 
 class LucidumDirBackupRunner(BaseBackupRunner):
     backup_file_format = "lucidum_{date}.tar.gz"
+    _items_to_exclude = [
+        "update-manager",
+        "airflow_venv",
+        "backup",
+        "mongo",
+        "mysql",
+        "web",
+        "crontabTask",
+        "airflow/logs/*",
+        "airflow/*.pid",
+        "airflow/dags/__pycache__"
+    ]
 
     def __init__(self, name: str, client: DockerClient, backup_dir: str = None) -> None:
         super().__init__(name, backup_dir=backup_dir)
@@ -83,7 +103,7 @@ class LucidumDirBackupRunner(BaseBackupRunner):
         lucidum_dir = get_lucidum_dir()
         mysql_backup_file = MySQLBackupRunner("mysql", self._client, backup_dir=lucidum_dir)()
         mongo_backup_file = MongoBackupRunner("mongo", self._client, backup_dir=lucidum_dir)()
-        excludes = " ".join(f"--exclude={f}" for f in self._get_items_to_exclude())
+        excludes = " ".join(f"--exclude={f}" for f in self._items_to_exclude)
         dump_cmd = f"sudo tar -czvf {self.backup_file} {excludes} --directory={lucidum_dir} ."
         logger.info("Dumping data for '{}' into {} file...", self.name, self.backup_file)
         try:
@@ -99,20 +119,6 @@ class LucidumDirBackupRunner(BaseBackupRunner):
                 os.remove(mongo_backup_file)
         logger.info("'{}' backup data is saved to {}", self.name, self.backup_file)
         return self.backup_file
-
-    @staticmethod
-    def _get_items_to_exclude():
-        return [
-            "update-manager",
-            "airflow_venv",
-            "backup",
-            "mongo",
-            "mysql",
-            "web",
-            "airflow/logs/*",
-            "airflow/*.pid",
-            "airflow/dags/__pycache__"
-        ]
 
 
 def get_backup_runner(data_to_backup: str):

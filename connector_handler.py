@@ -50,7 +50,7 @@ def _get_connector_aws_bridges(path):
     bridges = []
     for config in configs:
         bridges.append({
-            "name": config["technology"],
+            "name": config["technology"].replace("aws_", ""),
             "dataCategory": config["type"],
             "services": config["services"]
         })

@@ -124,7 +124,7 @@ def init():
     create_directory(lucidum_dir)
     copy_file(os.path.join("resources", "docker-compose_env_file"), os.path.join(lucidum_dir, ".env"))
     copy_file(os.path.join("resources", "docker-compose_file"), os.path.join(lucidum_dir, "docker-compose.yml"))
-    copy_file(os.path.join("resources", "airflow_docker_job_file"), os.path.join(lucidum_dir + "airflow/dags/", "airflow_docker.py"))
+    copy_file(os.path.join("resources", "airflow_docker_job_file"), os.path.join(lucidum_dir + "/airflow/dags/", "airflow_docker.py"))
     create_mongo_directory(lucidum_dir)
     create_mysql_directory(lucidum_dir)
     create_web_directory(lucidum_dir)

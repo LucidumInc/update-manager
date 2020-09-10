@@ -37,6 +37,11 @@ def load_docker_images(filepath: str) -> list:
         return docker_client.images.load(f)
 
 
+def remove_docker_image(image: str) -> None:
+    logger.info("Removing '{}' image...", image)
+    docker_client.images.remove(image, force=True)
+
+
 def copy_files_from_docker_container(image: Image, docker_path, host_path):
     logger.info("Copy files from {} docker {} to host {}", image.tags, docker_path, host_path)
     container = docker_client.containers.create(image, 'bash')

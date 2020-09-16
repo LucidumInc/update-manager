@@ -1,8 +1,11 @@
+import time
+
 import os
 import re
 import shutil
-
+import tarfile
 from docker.models.images import Image
+from io import BytesIO
 from loguru import logger
 
 from config_handler import ecr_client, docker_client
@@ -54,3 +57,17 @@ def copy_files_from_docker_container(image: Image, docker_path, host_path):
         container.remove()
         if os.path.isfile(filename):
             os.remove(filename)
+
+
+def create_archive(filepath: str):
+    tar_stream = BytesIO()
+    tar = tarfile.TarFile(fileobj=tar_stream, mode='w')
+    with open(filepath, "rb") as f:
+        file_data = f.read()
+    tarinfo = tarfile.TarInfo(name=os.path.basename(filepath))
+    tarinfo.size = len(file_data)
+    tarinfo.mtime = time.time()
+    tar.addfile(tarinfo, BytesIO(file_data))
+    tar.close()
+    tar_stream.seek(0)
+    return tar_stream

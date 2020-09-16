@@ -1,17 +1,15 @@
 import subprocess
 import sys
-import time
 
 import fnmatch
 import os
 import shutil
-import tarfile
 from docker import DockerClient
 from functools import wraps
-from io import BytesIO
 from loguru import logger
 
 from config_handler import get_db_config, get_mongo_config, get_lucidum_dir, docker_client
+from docker_service import create_archive
 from exceptions import AppError
 
 
@@ -39,20 +37,6 @@ class BaseRestoreRunner:
     def __call__(self):
         raise NotImplementedError
 
-    @staticmethod
-    def create_archive(filepath: str):
-        tar_stream = BytesIO()
-        tar = tarfile.TarFile(fileobj=tar_stream, mode='w')
-        with open(filepath, "rb") as f:
-            file_data = f.read()
-        tarinfo = tarfile.TarInfo(name=os.path.basename(filepath))
-        tarinfo.size = len(file_data)
-        tarinfo.mtime = time.time()
-        tar.addfile(tarinfo, BytesIO(file_data))
-        tar.close()
-        tar_stream.seek(0)
-        return tar_stream
-
 
 class MySQLRestoreRunner(BaseRestoreRunner):
     container_dest_dir = "/home"
@@ -60,7 +44,7 @@ class MySQLRestoreRunner(BaseRestoreRunner):
     @log_wrap
     def __call__(self):
         container = self.client.containers.get("mysql")
-        tar_stream = self.create_archive(self.filepath)
+        tar_stream = create_archive(self.filepath)
         success = container.put_archive(self.container_dest_dir, tar_stream)
         if not success:
             raise AppError(f"Putting '{self.filepath}' file to 'mysql' container was failed")
@@ -90,7 +74,7 @@ class MongoRestoreRunner(BaseRestoreRunner):
         if self._web_stop:
             subprocess.run([docker_compose_executable, "stop", self.web_service], cwd=lucidum_dir, check=True)
         container = self.client.containers.get("mongo")
-        tar_stream = self.create_archive(self.filepath)
+        tar_stream = create_archive(self.filepath)
         success = container.put_archive(self.container_dest_dir, tar_stream)
         if not success:
             raise AppError(f"Putting '{self.filepath}' file to 'mongo' container was failed")

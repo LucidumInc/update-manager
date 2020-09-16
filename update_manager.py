@@ -87,6 +87,15 @@ def connector(output: str):
     run(output)
 
 
+@cli.command(name="import")
+@click.option("--db", required=True, type=click.Choice(["mongo"]), help="database where data should be imported in")
+@click.option("--source", required=True, type=click.Path(exists=True, dir_okay=False), help="filepath which contains actual data")
+@click.option("--destination", required=True, type=str, help="destination where data should be imported in")
+def import_(db, source, destination):
+    from import_handler import run
+    run(db, source, destination)
+
+
 @cli.command()
 @click.option("--data", "-d", multiple=True, type=click.Choice(['mysql', 'mongo', 'lucidum']))
 def backup(data: tuple):

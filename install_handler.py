@@ -8,6 +8,7 @@ import sys
 from datetime import datetime
 
 import yaml
+from docker.errors import APIError
 from jinja2 import Environment, FileSystemLoader
 from loguru import logger
 from tabulate import tabulate
@@ -15,7 +16,7 @@ from tabulate import tabulate
 from config_handler import get_archive_config, get_lucidum_dir, get_jinja_templates_dir, \
     get_docker_compose_tmplt_file, get_ecr_images, get_images_from_ecr, docker_client, \
     get_local_images
-from docker_service import load_docker_images, pull_docker_image, copy_files_from_docker_container
+from docker_service import load_docker_images, pull_docker_image, copy_files_from_docker_container, remove_docker_image
 from exceptions import AppError
 
 _jinja_env = Environment(loader=FileSystemLoader(get_jinja_templates_dir()))
@@ -154,24 +155,46 @@ def create_hard_link(src, dst):
     os.link(src, dst)
 
 
-def update_docker_image(image_data, copy_default):
-    logger.info(image_data)
-    image_tag = f"{image_data['name']}:{image_data['version']}"
-    _remove_image(image_data['image'])
-    _remove_image(image_tag)
-    image = pull_docker_image(image_data["image"])
-    logger.info(f"Updated to latest image, id: {image.short_id} tag: {image.tags}")
-    image.tag(image_tag)
-    docker_client.images.remove(image_data['image'])
-    image.reload()
-    host_path, docker_path = image_data.get("hostPath"), image_data.get("dockerPath")
-    if host_path:
-        _check_path(host_path)
-    if copy_default and docker_path and host_path:
-        copy_files_from_docker_container(image, docker_path, host_path)
-    has_env_file = image_data.get("hasEnvFile")
-    if has_env_file:
-        create_hard_link(os.path.join("resources", "connector_env_file"), os.path.join(host_path, ".env"))
+class DockerImagesUpdater:
+
+    def __init__(self, ecr_images, copy_default, restart) -> None:
+        self._ecr_images = ecr_images
+        self._copy_default = copy_default
+        self._restart = restart
+        self._images_to_remove = []
+
+    def _update_image(self, image_data):
+        logger.info(image_data)
+        image_tag = f"{image_data['name']}:{image_data['version']}"
+        old_image = docker_client.images.get(image_tag)
+        image = pull_docker_image(image_data["image"])
+        logger.info(f"Updated to latest image, id: {image.short_id} tag: {image.tags}")
+        if image.short_id != old_image.short_id:
+            self._images_to_remove.append(old_image.short_id)
+            image.tag(image_tag)
+            image.reload()
+        self._images_to_remove.append(image_data["image"])
+        host_path, docker_path = image_data.get("hostPath"), image_data.get("dockerPath")
+        if host_path:
+            _check_path(host_path)
+        if self._copy_default and docker_path and host_path:
+            copy_files_from_docker_container(image, docker_path, host_path)
+        has_env_file = image_data.get("hasEnvFile")
+        if has_env_file:
+            create_hard_link(os.path.join("resources", "connector_env_file"), os.path.join(host_path, ".env"))
+
+    def __call__(self):
+        components = []
+        for ecr_image in self._ecr_images:
+            self._update_image(ecr_image)
+            components.append(ecr_image["name"])
+        if (self._restart and "mvp1_backend" in components) or "connector-aws" in components:
+            restart_docker_compose_services()
+        for image in self._images_to_remove:
+            try:
+                remove_docker_image(image)
+            except APIError as e:
+                logger.warning(e)
 
 
 @logger.catch(onerror=lambda _: sys.exit(1))
@@ -210,12 +233,10 @@ def get_components(filter_=None, get_images=get_ecr_images):
 @logger.catch(onerror=lambda _: sys.exit(1))
 def install_ecr(components, copy_default, restart, get_images=get_ecr_images):
     ecr_images = get_images()
-    for ecr_image in ecr_images:
-        if f"{ecr_image['name']}:{ecr_image['version']}" not in components:
-            continue
-        update_docker_image(ecr_image, copy_default)
-    if restart and any("mvp1_backend" in component for component in components):
-        restart_docker_compose_services()
+    update_docker_images = DockerImagesUpdater(
+        [image for image in ecr_images if f"{image['name']}:{image['version']}" in components], copy_default, restart
+    )
+    update_docker_images()
 
 
 @logger.catch(onerror=lambda _: sys.exit(1))

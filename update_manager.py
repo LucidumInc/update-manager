@@ -34,14 +34,14 @@ def installecr(components, copy_default, restart) -> None:
     type=click.Choice(get_components(get_images=get_images_from_ecr)), help="ecr component list"
 )
 @click.option('--copy-default', '-d', default=False, is_flag=True, help='copy default files from docker to host')
-@click.option('--restart', '-r', is_flag=True, help='restart web container')
+@click.option('--restart', '-r', default=False, is_flag=True, help='restart web container')
 @click.option('--list', '-l', 'list_', is_flag=True, help='list available components')
 @history_command(command="ecr", get_history_entries=get_install_ecr_entries, get_images=get_images_from_ecr)
 def ecr(components, copy_default, restart, list_):
     if list_:
         list_components()
     else:
-        logger.info(f"ecr components: {components}")
+        logger.info(f"ecr components: {components}, copy default: {copy_default}, restart: {restart}")
         install_ecr(components, copy_default, restart, get_images=get_images_from_ecr)
 
 

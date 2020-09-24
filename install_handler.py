@@ -166,10 +166,14 @@ class DockerImagesUpdater:
     def _update_image(self, image_data):
         logger.info(image_data)
         image_tag = f"{image_data['name']}:{image_data['version']}"
-        old_image = docker_client.images.get(image_tag)
+        try:
+            old_image = docker_client.images.get(image_tag)
+        except:
+            logger.info(f'{image_tag} local image does not exist!')
+            old_image = None
         image = pull_docker_image(image_data["image"])
         logger.info(f"Updated to latest image, id: {image.short_id} tag: {image.tags}")
-        if image.short_id != old_image.short_id:
+        if old_image and image.short_id != old_image.short_id:
             self._images_to_remove.append(old_image.short_id)
             image.tag(image_tag)
             image.reload()

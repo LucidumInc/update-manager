@@ -175,8 +175,8 @@ class DockerImagesUpdater:
         logger.info(f"Updated to latest image, id: {image.short_id} tag: {image.tags}")
         if old_image and image.short_id != old_image.short_id:
             self._images_to_remove.append(old_image.short_id)
-            image.tag(image_tag)
-            image.reload()
+        image.tag(image_tag)
+        image.reload()
         self._images_to_remove.append(image_data["image"])
         host_path, docker_path = image_data.get("hostPath"), image_data.get("dockerPath")
         if host_path:
@@ -192,7 +192,7 @@ class DockerImagesUpdater:
         for ecr_image in self._ecr_images:
             self._update_image(ecr_image)
             components.append(ecr_image["name"])
-        if (self._restart and "mvp1_backend" in components) or "connector-aws" in components:
+        if (self._restart and "mvp1_backend" in components) or (self._restart and "connector-aws" in components):
             restart_docker_compose_services()
         for image in self._images_to_remove:
             try:

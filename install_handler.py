@@ -192,7 +192,8 @@ class DockerImagesUpdater:
         for ecr_image in self._ecr_images:
             self._update_image(ecr_image)
             components.append(ecr_image["name"])
-        if (self._restart and "mvp1_backend" in components) or (self._restart and "connector-aws" in components):
+        if (self._restart and "mvp1_backend" in components) or \
+                (self._restart and any("connector-" in component for component in components)):
             restart_docker_compose_services()
         for image in self._images_to_remove:
             try:

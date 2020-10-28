@@ -51,11 +51,11 @@ def copy_files_from_docker_container(image: Image, docker_path, host_path):
     filename = os.path.join(host_path, "docker.tar")
     try:
         bits, _ = container.get_archive(f"{docker_path}/.")
+        if not os.path.exists(host_path):
+            os.makedirs(host_path)
         with open(filename, 'wb') as f:
             for chunk in bits:
                 f.write(chunk)
-        if not os.path.exists(host_path):
-            os.makedirs(host_path)
         shutil.unpack_archive(filename, extract_dir=host_path)
     finally:
         logger.info("clean up")

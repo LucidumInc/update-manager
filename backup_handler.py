@@ -1,9 +1,10 @@
-import shutil
 import subprocess
 import sys
 from datetime import datetime
+from pathlib import Path
 
 import os
+import shutil
 from docker import DockerClient
 from loguru import logger
 
@@ -12,31 +13,42 @@ from exceptions import AppError
 
 
 class BaseBackupRunner:
-    backup_file_format = None
+    backup_filename_format = None
 
-    def __init__(self, name: str, backup_dir: str = None) -> None:
+    def __init__(self, name: str, backup_dir: str = None, filepath: str = None) -> None:
         self.name = name
         self.backup_dir = backup_dir
+        if filepath:
+            self._validate_file_extension(filepath)
+        self._filepath = filepath
         self.datetime_now = datetime.now()
         if self.backup_dir is not None:
             os.makedirs(backup_dir, exist_ok=True)
 
     @property
     def backup_file(self):
-        backup_file = self.backup_file_format.format(date=self.datetime_now.strftime('%Y%m%d_%H%M%S'))
-        if self.backup_dir is not None:
-            backup_file = os.path.join(self.backup_dir, backup_file)
+        if self._filepath:
+            backup_file = self._filepath
+        else:
+            backup_file = self.backup_filename_format.format(date=self.datetime_now.strftime('%Y%m%d_%H%M%S'))
+            if self.backup_dir is not None:
+                backup_file = os.path.join(self.backup_dir, backup_file)
         return backup_file
+
+    def _validate_file_extension(self, filepath):
+        file_ext = "".join(Path(self.backup_filename_format).suffixes)
+        if filepath and not filepath.endswith(file_ext):
+            raise Exception(f"File for '{self.name}' backup should have '{file_ext}' extension")
 
     def __call__(self):
         raise NotImplementedError
 
 
 class MySQLBackupRunner(BaseBackupRunner):
-    backup_file_format = "mysql_dump_{date}.sql"
+    backup_filename_format = "mysql_dump_{date}.sql"
 
-    def __init__(self, name: str, client: DockerClient, backup_dir: str = None) -> None:
-        super().__init__(name, backup_dir=backup_dir)
+    def __init__(self, name: str, client: DockerClient, backup_dir: str = None, filepath: str = None) -> None:
+        super().__init__(name, backup_dir=backup_dir, filepath=filepath)
         self._client = client
 
     def __call__(self):
@@ -54,12 +66,12 @@ class MySQLBackupRunner(BaseBackupRunner):
 
 
 class MongoBackupRunner(BaseBackupRunner):
-    backup_file_format = "mongo_dump_{date}.gz"
+    backup_filename_format = "mongo_dump_{date}.gz"
     container_dir = "/bitnami/mongodb"
     host_dir = "{}/mongo/db"
 
-    def __init__(self, name: str, client: DockerClient, backup_dir: str = None) -> None:
-        super().__init__(name, backup_dir=backup_dir)
+    def __init__(self, name: str, client: DockerClient, backup_dir: str = None, filepath: str = None) -> None:
+        super().__init__(name, backup_dir=backup_dir, filepath=filepath)
         self._client = client
 
     def __call__(self):
@@ -81,7 +93,7 @@ class MongoBackupRunner(BaseBackupRunner):
 
 
 class LucidumDirBackupRunner(BaseBackupRunner):
-    backup_file_format = "lucidum_{date}.tar.gz"
+    backup_filename_format = "lucidum_{date}.tar.gz"
     _items_to_exclude = [
         "update-manager",
         "airflow_venv",
@@ -95,8 +107,8 @@ class LucidumDirBackupRunner(BaseBackupRunner):
         "airflow/dags/__pycache__"
     ]
 
-    def __init__(self, name: str, client: DockerClient, backup_dir: str = None) -> None:
-        super().__init__(name, backup_dir=backup_dir)
+    def __init__(self, name: str, client: DockerClient, backup_dir: str = None, filepath: str = None) -> None:
+        super().__init__(name, backup_dir=backup_dir, filepath=filepath)
         self._client = client
 
     def __call__(self):
@@ -121,22 +133,22 @@ class LucidumDirBackupRunner(BaseBackupRunner):
         return self.backup_file
 
 
-def get_backup_runner(data_to_backup: str):
+def get_backup_runner(data_to_backup: str, filepath: str = None):
     backup_dir = get_backup_dir()
     if data_to_backup == "mysql":
-        return MySQLBackupRunner(data_to_backup, docker_client, backup_dir=backup_dir)
+        return MySQLBackupRunner(data_to_backup, docker_client, backup_dir=backup_dir, filepath=filepath)
     elif data_to_backup == "mongo":
-        return MongoBackupRunner(data_to_backup, docker_client, backup_dir=backup_dir)
+        return MongoBackupRunner(data_to_backup, docker_client, backup_dir=backup_dir, filepath=filepath)
     elif data_to_backup == "lucidum":
-        return LucidumDirBackupRunner(data_to_backup, docker_client, backup_dir=backup_dir)
+        return LucidumDirBackupRunner(data_to_backup, docker_client, backup_dir=backup_dir, filepath=filepath)
     else:
         raise AppError(f"Cannot backup data for {data_to_backup}")
 
 
 @logger.catch(onerror=lambda _: sys.exit(1))
-def backup(data: list):
+def backup(data: list, filepath: str):
     try:
-        backup_runners = [get_backup_runner(d) for d in data]
+        backup_runners = [get_backup_runner(d, filepath) for d in data]
         for backup_runner in backup_runners:
             backup_runner()
     except AppError as e:

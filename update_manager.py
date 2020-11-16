@@ -98,12 +98,13 @@ def import_(db, source, destination):
 
 @cli.command()
 @click.option("--data", "-d", multiple=True, type=click.Choice(['mysql', 'mongo', 'lucidum']))
-def backup(data: tuple):
+@click.option("--filepath", "-f", type=click.Path(dir_okay=False))
+def backup(data: tuple, filepath: str):
     from backup_handler import backup as backup_lucidum
     backup_data = [d for d in data]
     if not backup_data:
         backup_data = ["lucidum"]
-    backup_lucidum(backup_data)
+    backup_lucidum(backup_data, filepath)
 
 
 @cli.command()

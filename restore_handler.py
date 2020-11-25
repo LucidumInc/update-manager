@@ -101,7 +101,7 @@ class LucidumDirRestoreRunner(BaseRestoreRunner):
         docker_compose_executable = shutil.which("docker-compose")
         subprocess.run([docker_compose_executable, "stop", self.web_service], cwd=lucidum_dir, check=True)
         mysql_dump_file = mongo_dump_file = None
-        restore_cmd = f"sudo tar -xvf {self.filepath} --directory={lucidum_dir}"
+        restore_cmd = f"tar -xzvf {self.filepath} --directory={lucidum_dir}"
         try:
             try:
                 subprocess.run(restore_cmd.split(), check=True)
@@ -118,9 +118,9 @@ class LucidumDirRestoreRunner(BaseRestoreRunner):
             MongoRestoreRunner("mongo", mongo_dump_file, self.client, web_stop=False)()
         finally:
             subprocess.run([docker_compose_executable, "start", self.web_service], cwd=lucidum_dir, check=True)
-            if os.path.isfile(mysql_dump_file):
+            if mysql_dump_file and os.path.isfile(mysql_dump_file):
                 os.remove(mysql_dump_file)
-            if os.path.isfile(mongo_dump_file):
+            if mongo_dump_file and os.path.isfile(mongo_dump_file):
                 os.remove(mongo_dump_file)
 
     @staticmethod

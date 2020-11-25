@@ -104,7 +104,7 @@ class LucidumDirBackupRunner(BaseBackupRunner):
         "crontabTask",
         "airflow/logs/*",
         "airflow/*.pid",
-        "airflow/dags/__pycache__"
+        "__pycache__"
     ]
 
     def __init__(self, name: str, client: DockerClient, backup_dir: str = None, filepath: str = None) -> None:
@@ -116,7 +116,7 @@ class LucidumDirBackupRunner(BaseBackupRunner):
         mysql_backup_file = MySQLBackupRunner("mysql", self._client, backup_dir=lucidum_dir)()
         mongo_backup_file = MongoBackupRunner("mongo", self._client, backup_dir=lucidum_dir)()
         excludes = " ".join(f"--exclude={f}" for f in self._items_to_exclude)
-        dump_cmd = f"sudo tar -czvf {self.backup_file} {excludes} --directory={lucidum_dir} ."
+        dump_cmd = f"tar -czvf {self.backup_file} {excludes} --directory={lucidum_dir} ."
         logger.info("Dumping data for '{}' into {} file...", self.name, self.backup_file)
         try:
             subprocess.run(dump_cmd.split(), check=True)

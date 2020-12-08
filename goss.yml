@@ -1,0 +1,156 @@
+package:
+  python:
+    installed: true
+  virtualenv:
+    installed: true
+  python3-pip:
+    installed: true
+  python3-venv:
+    installed: true
+  python3-psycopg2:
+    installed: true
+  python3-setuptools:
+    installed: true
+  python3-dev:
+    installed: true
+  postgresql:
+    installed: true
+  postgresql-contrib:
+    installed: true
+  libpq-dev:
+    installed: true
+  gcc:
+    installed: true
+  git:
+    installed: true
+
+command:
+  version:
+    exit-status: 0
+    exec: "/usr/lucidum/venv/bin/pip3 list 2> /dev/null | grep -v '---' | grep -v Packages | sort"
+    stderr: []
+    timeout: 10000
+    skip: false
+    stdout:
+    - Babel                  2.9.0
+    - Flask                  1.1.2
+    - Jinja2                 2.10.3
+    - Mako                   1.1.3
+    - Markdown               2.6.11
+    - MarkupSafe             1.1.1
+    - Package                Version
+    - PyJWT                  1.7.1
+    - PyYAML                 5.3.1
+    - Pygments               2.7.3
+    - SQLAlchemy             1.3.15
+    - WTForms                2.3.3
+    - Werkzeug               0.16.1
+    - aiocontextvars         0.2.2
+    - alembic                1.4.3
+    - amqp                   5.0.2
+    - apispec                1.3.3
+    - argcomplete            1.12.2
+    - attrs                  19.3.0
+    - awscli                 1.18.140
+    - behave                 1.2.6
+    - billiard               3.6.3.0
+    - boto3                  1.14.22
+    - botocore               1.17.63
+    - cattrs                 0.9.2
+    - celery                 5.0.3
+    - certifi                2020.12.5
+    - cffi                   1.14.4
+    - chardet                3.0.4
+    - click                  7.1.2
+    - colorama               0.4.3
+    - colorlog               4.0.2
+    - configparser           3.5.3
+    - contextvars            2.4
+    - croniter               0.3.36
+    - cryptography           2.9.2
+    - defusedxml             0.6.0
+    - dill                   0.3.3
+    - dnspython              2.0.0
+    - docker                 4.2.2
+    - docutils               0.15.2
+    - dynaconf               3.0.0
+    - funcsigs               1.0.2
+    - future                 0.16.0
+    - graphviz               0.15
+    - gunicorn               19.5.0
+    - idna                   2.10
+    - immutables             0.14
+    - iso8601                0.1.13
+    - itsdangerous           1.1.0
+    - jmespath               0.10.0
+    - jsonschema             3.2.0
+    - kombu                  5.0.2
+    - lockfile               0.12.2
+    - loguru                 0.5.1
+    - marshmallow            2.21.0
+    - natsort                7.1.0
+    - numpy                  1.19.4
+    - pandas                 0.25.3
+    - parse                  1.18.0
+    - pendulum               1.4.4
+    - pip                    20.3.1
+    - prison                 0.1.3
+    - psutil                 5.7.3
+    - psycopg2               2.8.6
+    - pyasn1                 0.4.8
+    - pycparser              2.20
+    - pymongo                3.11.2
+    - pyrsistent             0.17.3
+    - pytz                   2020.4
+    - pytzdata               2020.1
+    - requests               2.25.0
+    - rsa                    4.5
+    - s3transfer             0.3.3
+    - setproctitle           1.2.1
+    - setuptools             51.0.0
+    - six                    1.15.0
+    - tabulate               0.8.7
+    - tenacity               4.12.0
+    - termcolor              1.1.0
+    - thrift                 0.13.0
+    - typing                 3.7.4.3
+    - tzlocal                1.5.1
+    - unicodecsv             0.14.1
+    - urllib3                1.25.11
+    - vine                   5.0.0
+    - wcwidth                0.2.5
+    - wheel                  0.36.1
+    - zipp                   3.4.0
+    - zope.deprecation       4.4.0
+
+port:
+  tcp:22:
+    listening: true
+    ip:
+      - 0.0.0.0
+
+service:
+  airflow-scheduler:
+    enabled: true
+    running: true
+  airflow-webserver:
+    enabled: true
+    running: true
+  cron:
+    enabled: true
+    running: true
+  docker:
+    enabled: true
+    running: true
+
+user:
+  postgres:
+    exists: true
+
+group:
+  postgres:
+    exists: true
+
+process:
+  sshd:
+    running: true

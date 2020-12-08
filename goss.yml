@@ -27,7 +27,7 @@ package:
 command:
   version:
     exit-status: 0
-    exec: "/usr/lucidum/venv/bin/pip3 list 2> /dev/null | grep -v '---' | grep -v Packages | sort"
+    exec: "/usr/lucidum/venv/bin/pip3 list 2> /dev/null | egrep -v 'Packages|---' | sort"
     stderr: []
     timeout: 10000
     skip: false

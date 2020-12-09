@@ -11,7 +11,9 @@ from aws_service import ECRClient
 from exceptions import AppError
 
 docker_client = DockerClient.from_env()
-ecr_client = ECRClient(settings["AWS_REGION"], settings.get("AWS_ACCESS_KEY"), settings.get("AWS_SECRET_KEY"))
+ecr_client = ECRClient(settings.get("AWS_REGION", "us-west-1"),
+                       settings.get("AWS_ACCESS_KEY"),
+                       settings.get("AWS_SECRET_KEY"))
 
 
 def required_field_check(field):

@@ -23,11 +23,11 @@ Vagrant.configure('2') do |config|
 
   config.vm.provision "shell",
     env: {
-           "AWS_REGION" => "us-west-1",
-           "DYNACONF_jinja_templates_dir" => "tmplts",
-           "DYNACONF_ecr_base" => "308025194586.dkr.ecr.us-west-1.amazonaws.com",
-           "DYNACONF_lucidum_dir" => "/usr/lucidum"
-         },
+      "AWS_REGION" => "us-west-1",
+      "DYNACONF_jinja_templates_dir" => "tmplts",
+      "DYNACONF_ecr_base" => "308025194586.dkr.ecr.us-west-1.amazonaws.com",
+      "DYNACONF_lucidum_dir" => "/usr/lucidum"
+    },
     inline: <<-SCRIPT
       env | sort | nl
       sudo apt update -y

@@ -5,6 +5,7 @@
 require 'vagrant-aws'
 Vagrant.configure('2') do |config|
   config.vm.box = 'dummy'
+  config.vm.synced_folder ".", "/vagrant", disabled: true
 
   config.vm.provider 'aws' do |aws, override|
     aws.keypair_name = 'lucidum-us-east-1'
@@ -15,7 +16,7 @@ Vagrant.configure('2') do |config|
     aws.ami = 'ami-0817d428a6fb68645'
     aws.security_groups = [ 'sg-0e398bdf2b70c0895' ]
     aws.block_device_mapping = [{ 'DeviceName' => '/dev/sda1', 'Ebs.VolumeSize' => 100 }]
-    aws.iam_instance_profile_name = "vagrant_development_update_manager"
+    aws.iam_instance_profile_name = "vagrant_development"
     aws.tags = { 'Name' => 'vagrant update-manager development' }
     override.ssh.username = 'ubuntu'
     override.ssh.private_key_path = '~/.ssh/lucidum-us-east-1.pem'
@@ -29,9 +30,22 @@ Vagrant.configure('2') do |config|
       "DYNACONF_lucidum_dir" => "/usr/lucidum"
     },
     inline: <<-SCRIPT
+      set -o errexit
+      set -o errtrace
+      set -o functrace
+      set -o hashall
+      set -o pipefail
+      set -o verbose
+      set -o xtrace
+      set -o physical
+      set -o privileged
+      set -o nounset
+      set -o noclobber
+
       env | sort | nl
-      sudo apt update -y
-      sudo apt install python3-venv docker.io -y
+      sudo apt-get update -y
+      sleep 5
+      sudo apt-get install python3-venv docker.io -y
       rm -rf lucidum_venv
       python3 -m venv lucidum_venv
       source lucidum_venv/bin/activate

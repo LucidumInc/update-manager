@@ -21,16 +21,26 @@ Vagrant.configure('2') do |config|
     override.ssh.private_key_path = '~/.ssh/lucidum-us-east-1.pem'
   end
 
-  config.vm.provision "shell", env: {"AWS_REGION" => "us-west-1"}, inline: <<-SCRIPT
-    sudo apt update -y
-    sudo apt install python3-venv -y
-    python3 -m venv lucidum_venv
-    source lucidum_venv/bin/activate
-    git clone https://github.com/LucidumInc/update-manager.git
-    cd update-manager
-    pip3 install --no-cache-dir -r requirements.txt
-    aws sts get-caller-identity
-    python3 update_manager.py help
+  config.vm.provision "shell",
+    env: {
+           "AWS_REGION" => "us-west-1",
+           "DYNACONF_jinja_templates_dir" => "tmplts",
+           "DYNACONF_ecr_base" => "308025194586.dkr.ecr.us-west-1.amazonaws.com",
+           "DYNACONF_lucidum_dir" => "/usr/lucidum"
+         },
+    inline: <<-SCRIPT
+      env | sort | nl
+      sudo apt update -y
+      sudo apt install python3-venv docker.io -y
+      rm -rf lucidum_venv
+      python3 -m venv lucidum_venv
+      source lucidum_venv/bin/activate
+      rm -rf update-manager
+      git clone https://github.com/LucidumInc/update-manager.git
+      cd update-manager
+      pip3 install --no-cache-dir -r requirements.txt
+      aws sts get-caller-identity
+      python3 update_manager.py --help
 SCRIPT
 
 end

@@ -86,7 +86,6 @@ command:
     - loguru                 0.5.1
     - marshmallow            2.21.0
     - natsort                7.1.0
-    - numpy                  1.19.4
     - pandas                 0.25.3
     - parse                  1.18.0
     - pendulum               1.4.4

@@ -65,7 +65,6 @@ command:
     - colorlog               4.0.2
     - configparser           3.5.3
     - contextvars            2.4
-    - croniter               0.3.36
     - cryptography           2.9.2
     - defusedxml             0.6.0
     - dill                   0.3.3
@@ -75,7 +74,6 @@ command:
     - dynaconf               3.0.0
     - funcsigs               1.0.2
     - future                 0.16.0
-    - graphviz               0.15
     - gunicorn               19.5.0
     - idna                   2.10
     - immutables             0.14
@@ -98,8 +96,6 @@ command:
     - pycparser              2.20
     - pymongo                3.11.2
     - pyrsistent             0.17.3
-    - pytz                   2020.4
-    - pytzdata               2020.1
     - rsa                    4.5
     - s3transfer             0.3.3
     - setproctitle           1.2.1

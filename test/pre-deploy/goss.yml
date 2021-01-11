@@ -95,7 +95,6 @@ command:
     - pymongo                3.11.2
     - pyrsistent             0.17.3
     - rsa                    4.5
-    - s3transfer             0.3.3
     - setproctitle           1.2.1
     - six                    1.15.0
     - tabulate               0.8.7

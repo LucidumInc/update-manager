@@ -44,7 +44,6 @@ command:
     - WTForms                2.3.3
     - Werkzeug               0.16.1
     - aiocontextvars         0.2.2
-    - amqp                   5.0.2
     - apispec                1.3.3
     - argcomplete            1.12.2
     - attrs                  19.3.0

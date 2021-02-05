@@ -130,7 +130,7 @@ def is_connector(image_name):
 
 def get_image_path_mapping(lucidum_dir, image_name, image_tag):
     path_mapping = {}
-    if is_connector(image_name):
+    if is_connector(image_name) or image_name == "action-manager":
         path_mapping["hostPath"] = f"{lucidum_dir}/{image_name}_{image_tag}/external"
         path_mapping["dockerPath"] = "/tmp/app/external"
         path_mapping["hasEnvFile"] = True

@@ -194,7 +194,7 @@ service:
   cron:
     enabled: true
     running: true
-{{if eq .Env.USER "ec2-user"}}
+{{else if eq .Env.USER "ec2-user"}}
   crond:
     enabled: true
     running: true

@@ -1,4 +1,13 @@
 package:
+  postgresql:
+    installed: true
+  postgresql-contrib:
+    installed: true
+  gcc:
+    installed: true
+  git:
+    installed: true
+{{if eq .Env.USER "ubuntu"}}
   python:
     installed: true
   virtualenv:
@@ -13,16 +22,25 @@ package:
     installed: true
   python3-dev:
     installed: true
-  postgresql:
-    installed: true
-  postgresql-contrib:
-    installed: true
   libpq-dev:
     installed: true
-  gcc:
+{{else if eq .Env.USER "ec2-user"}}
+  postgresql-server:
     installed: true
-  git:
+  postgresql-devel:
     installed: true
+  python3-devel:
+    installed: true
+  python3-libs:
+    installed: true
+  python-virtualenv:
+    installed: true
+  python-psycopg2:
+    installed: true
+  docker:
+    installed: true
+{{end}}
+
 
 command:
   version:
@@ -169,12 +187,18 @@ service:
   airflow-webserver:
     enabled: true
     running: true
-  cron:
-    enabled: true
-    running: true
   docker:
     enabled: true
     running: true
+{{if eq .Env.USER "ubuntu"}}
+  cron:
+    enabled: true
+    running: true
+{{if eq .Env.USER "ec2-user"}}
+  crond:
+    enabled: true
+    running: true
+{{end}}
 
 user:
   postgres:

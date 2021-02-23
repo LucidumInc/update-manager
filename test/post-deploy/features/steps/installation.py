@@ -1,4 +1,5 @@
 from behave import *
+import glob
 import pwd
 import os
 
@@ -13,5 +14,8 @@ def step_impl(context, install_path):
 
 @then('ensure files and directories do not have "{user}" ownership')
 def step_impl(context, user):
-  for path in os.listdir(context.install_path):
-    assert pwd.getpwuid(os.stat(context.install_path + '/' + path).st_uid) != user
+  for filepath in glob.iglob(context.install_path + '/**/**', recursive=True):
+    if not os.path.islink(filepath):
+      file_uid = os.stat(filepath).st_uid
+      user_uid = pwd.getpwnam(user).pw_uid
+      assert file_uid != user_uid

@@ -1,4 +1,4 @@
-name: ansible-playbooks continuous integration
+name: update-manager continuous integration
 
 on:
   push:

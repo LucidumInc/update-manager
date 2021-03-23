@@ -31,7 +31,7 @@ jobs:
         run: pip list
 
       - name: lint python code with pylint
-        run: pylint *.py
+        run: pylint --disable=missing-function-docstring,line-too-long,missing-module-docstring,invalid-name,trailing-newlines,bare-except,too-few-public-methods *.py
 
       - name: lint python code with flake8
         run: flake8 . --count --statistics

@@ -21,8 +21,8 @@ jobs:
       - name: use latest pip
         run: pip install --upgrade pip
 
-      - name: install python test deps
-        run: pip install -r requirements_test.txt
+      #- name: install python test deps
+      #  run: pip install -r requirements_test.txt
 
       - name: install python package deps
         run: pip install -r requirements.txt

@@ -1,0 +1,29 @@
+name: ansible-playbooks continuous integration
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: install python deps
+        run: pip install -r requirements_test.txt
+
+      - name: lint python code
+        run: pylint *.py
+
+      - name: unit test python code
+        run: echo unit
+
+      - name: integration test python code
+        run: echo integration
+
+      - name: publish package
+        run: echo publish package

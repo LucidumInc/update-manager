@@ -31,7 +31,7 @@ jobs:
         run: pip list
 
       - name: lint python code with flake8
-        run: flake8 *.py --count --statistics --ignore=E501,F401,E265,E302
+        run: flake8 *.py --count --statistics --ignore=E501,F401,E265,E302,E722,E731,W391
 
       - name: lint python code with pylint
         run: pylint --disable=missing-function-docstring,line-too-long,missing-module-docstring,invalid-name,trailing-newlines,bare-except,too-few-public-methods *.py

@@ -13,8 +13,14 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      - name: use latest pip
+        run: pip install --upgrade pip
+
       - name: install python deps
         run: pip install -r requirements_test.txt
+
+      - name: list python packages
+        run: pip list
 
       - name: lint python code
         run: pylint *.py

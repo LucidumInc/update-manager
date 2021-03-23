@@ -5,3 +5,4 @@ mccabe
 pylint
 toml
 wrapt
+flake8

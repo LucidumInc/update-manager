@@ -1,17 +1,22 @@
 name: update-manager continuous integration
 
-on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
-  workflow_dispatch:
+on: [ push, pull_request ]
 
 jobs:
   build:
-    runs-on: ubuntu-18.04
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-18.04 ]
+        python-version: [ 3.6, 3.7, 3.8 ]
     steps:
       - uses: actions/checkout@v2
+
+      - name: use set up python ${{ matrix.python-version }}
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python-version }}
 
       - name: use latest pip
         run: pip install --upgrade pip
@@ -22,8 +27,11 @@ jobs:
       - name: list python packages
         run: pip list
 
-      - name: lint python code
+      - name: lint python code with pylint
         run: pylint *.py
+
+      - name: lint python code with flake8
+        run: flake8 . --count --statistics
 
       - name: unit test python code
         run: echo unit

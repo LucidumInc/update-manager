@@ -8,7 +8,7 @@ package:
   git:
     installed: true
 {{if eq .Env.USER "ubuntu"}}
-  python:
+  python3:
     installed: true
   virtualenv:
     installed: true

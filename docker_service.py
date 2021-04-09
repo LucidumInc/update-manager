@@ -1,5 +1,5 @@
 import time
-
+import sys
 import os
 import re
 import shutil
@@ -53,6 +53,9 @@ def copy_files_from_docker_container(image: Image, docker_path, host_path):
         bits, _ = container.get_archive(f"{docker_path}/.")
         if not os.path.exists(host_path):
             os.makedirs(host_path)
+        else:
+            logger.warning(f"host_path: {host_path} already exists")
+            sys.exit(-1)
         with open(filename, 'wb') as f:
             for chunk in bits:
                 f.write(chunk)

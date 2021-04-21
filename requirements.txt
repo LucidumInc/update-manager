@@ -32,3 +32,6 @@ six==1.15.0
 tabulate==0.8.9
 urllib3==1.26.4
 websocket-client==0.58.0
+fastapi==0.63.0
+pydantic==1.8.1
+uvicorn==0.13.4

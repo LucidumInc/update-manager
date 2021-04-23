@@ -20,15 +20,17 @@ class AirflowModel(BaseModel):
 
 
 @router.post("/airflow", tags=["airflow"])
-def generate_airflow_dag_file(airflow: AirflowModel):
+def generate_airflow_dag_file(airflow: AirflowModel) -> dict:
     template = Environment(loader=BaseLoader(), extensions=["jinja2.ext.do"]).from_string(airflow.template)
     content = template.render(**airflow.data)
     try:
         compile(content, "airflow", "exec")
     except SyntaxError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     filename = airflow.filename or AIRFLOW_DOCKER_FILENAME
-    with open(os.path.join(get_lucidum_dir(), "airflow", "dags", filename), "w+") as f:
+    airflow_dags_path = os.path.join(get_lucidum_dir(), "airflow", "dags")
+    os.makedirs(airflow_dags_path, exist_ok=True)
+    with open(os.path.join(airflow_dags_path, filename), "w+") as f:
         f.write(content)
 
     return {
@@ -38,7 +40,22 @@ def generate_airflow_dag_file(airflow: AirflowModel):
     }
 
 
-def create_app():
+@router.get("/airflow", tags=["airflow"])
+def get_airflow_dag_file() -> dict:
+    try:
+        with open(os.path.join(get_lucidum_dir(), "airflow", "dags", AIRFLOW_DOCKER_FILENAME)) as f:
+            content = f.read()
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail="Airflow file was not found") from e
+
+    return {
+        "status": "OK",
+        "message": "success",
+        "file_content": content,
+    }
+
+
+def create_app() -> FastAPI:
     app_ = FastAPI()
     app_.include_router(router)
     return app_

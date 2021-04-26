@@ -43,6 +43,10 @@ def setup_logging():
         logger_.handlers = [InterceptHandler()]
 
 
+def startup_event():
+    setup_logging()
+
+
 class AirflowModel(BaseModel):
     template: str
     data: dict
@@ -88,15 +92,11 @@ def get_airflow_dag_file() -> dict:
 def create_app() -> FastAPI:
     app_ = FastAPI()
     app_.include_router(router)
+    app_.on_event("startup")(startup_event)
     return app_
 
 
 app = create_app()
-
-
-@app.on_event("startup")
-def startup_event():
-    setup_logging()
 
 
 if __name__ == "__main__":

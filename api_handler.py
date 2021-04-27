@@ -86,10 +86,12 @@ def get_airflow_dag_file() -> dict:
     }
 
 
+def startup_event() -> None:
+    setup_logging()
+
+
 def setup_startup_event(app_: FastAPI) -> None:
-    @app_.on_event("startup")
-    def startup_event():
-        setup_logging()
+    app_.add_event_handler("startup", startup_event)
 
 
 def default_exception_handler(request, exc) -> JSONResponse:

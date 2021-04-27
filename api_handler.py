@@ -8,6 +8,7 @@ from fastapi import FastAPI, APIRouter, HTTPException
 from jinja2 import Environment, BaseLoader
 from loguru import logger
 from pydantic import BaseModel
+from starlette.responses import JSONResponse
 
 from config_handler import get_lucidum_dir
 
@@ -32,7 +33,7 @@ class InterceptHandler(logging.Handler):
         logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
 
 
-def setup_logging():
+def setup_logging() -> None:
     logger.remove()
     logger.add(sys.stdout, enqueue=True)
     logger.add("logs/api_{time}.log", rotation="1 day", retention="30 days", diagnose=True)
@@ -41,10 +42,6 @@ def setup_logging():
     for log_ in ["uvicorn", "uvicorn.error", "uvicorn.access", "fastapi"]:
         logger_ = logging.getLogger(log_)
         logger_.handlers = [InterceptHandler()]
-
-
-def startup_event():
-    setup_logging()
 
 
 class AirflowModel(BaseModel):
@@ -89,10 +86,25 @@ def get_airflow_dag_file() -> dict:
     }
 
 
+def setup_startup_event(app_: FastAPI) -> None:
+    @app_.on_event("startup")
+    def startup_event():
+        setup_logging()
+
+
+def default_exception_handler(request, exc) -> JSONResponse:
+    return JSONResponse(content={"detail": repr(exc)}, status_code=500)
+
+
+def setup_exception_handlers(app_: FastAPI) -> None:
+    app_.add_exception_handler(Exception, default_exception_handler)
+
+
 def create_app() -> FastAPI:
     app_ = FastAPI()
     app_.include_router(router)
-    app_.on_event("startup")(startup_event)
+    setup_startup_event(app_)
+    setup_exception_handlers(app_)
     return app_
 
 

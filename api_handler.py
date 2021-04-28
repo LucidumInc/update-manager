@@ -95,11 +95,16 @@ def setup_startup_event(app_: FastAPI) -> None:
 
 
 def default_exception_handler(request, exc) -> JSONResponse:
-    return JSONResponse(content={"detail": repr(exc)}, status_code=500)
+    return JSONResponse(content={"status": "FAILED", "message": repr(exc)}, status_code=500)
+
+
+def http_exception_handler(request, exc) -> JSONResponse:
+    return JSONResponse(content={"status": "FAILED", "message": str(exc.detail)}, status_code=exc.status_code)
 
 
 def setup_exception_handlers(app_: FastAPI) -> None:
     app_.add_exception_handler(Exception, default_exception_handler)
+    app_.add_exception_handler(HTTPException, http_exception_handler)
 
 
 def create_app() -> FastAPI:

@@ -81,3 +81,7 @@ Options:
 ```shell
 gunicorn api_handler:app -k uvicorn.workers.UvicornH11Worker
 ```
+
+## API documentation URLs
+* Swagger (http://localhost:8000/docs)
+* ReDoc (http://localhost:8000/redoc)

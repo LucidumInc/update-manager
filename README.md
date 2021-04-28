@@ -76,3 +76,12 @@ Options:
 > sudo mkdir -p /usr/lucidum_backup\
 > sudo chown -R demo:demo /usr/lucidum_backup\
 > sudo chmod -R 777 /usr/lucidum_backup
+
+## Run update-manager api with gunicorn
+```shell
+gunicorn api_handler:app -k uvicorn.workers.UvicornH11Worker
+```
+
+## API documentation URLs
+* Swagger (http://localhost:8000/docs)
+* ReDoc (http://localhost:8000/redoc)

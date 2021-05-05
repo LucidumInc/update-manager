@@ -2,9 +2,11 @@ import grp
 import platform
 import pwd
 
+import boto3
 import distro
 import os
 import psutil
+import requests
 from psutil._common import bytes2human
 
 
@@ -64,3 +66,23 @@ def get_disk_usage(path: str) -> dict:
 
 def get_cpu_count(logical: bool = False) -> int:
     return psutil.cpu_count(logical)
+
+
+def check_ui_health() -> dict:
+    response = requests.get("https://localhost:443/CMDB/api/management/health", verify=False)
+    return response.json()
+
+
+def check_airflow_health() -> dict:
+    response = requests.get("http://localhost:9080/health")
+    return response.json()
+
+
+def get_aws_credentials() -> dict:
+    session = boto3.Session()
+    credentials = session.get_credentials()
+    credentials = credentials.get_frozen_credentials()
+    attributes = ["access_key", "secret_key"]
+    return {
+        attribute: getattr(credentials, attribute) for attribute in attributes
+    }

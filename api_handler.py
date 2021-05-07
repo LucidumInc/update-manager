@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from starlette.responses import JSONResponse
 
 from config_handler import get_lucidum_dir
+from healthcheck_handler import get_health_information
 
 AIRFLOW_DOCKER_FILENAME = "airflow_docker.py"
 
@@ -84,6 +85,11 @@ def get_airflow_dag_file() -> dict:
         "message": "success",
         "file_content": content,
     }
+
+
+@router.get("/healthcheck", tags=["health"])
+def get_health_status() -> dict:
+    return get_health_information()
 
 
 def startup_event() -> None:

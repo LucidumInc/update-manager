@@ -261,8 +261,7 @@ def remove_components(components):
         _remove_image(component)
 
 
-@logger.catch(onerror=lambda _: sys.exit(1))
-def list_components():
+def get_ecr_to_local_components_conjunction() -> list:
     local_images = get_local_images()
     ecr_images = get_images_from_ecr()
 
@@ -290,8 +289,15 @@ def list_components():
                 "host_path": host_path
             }
 
+    return list(result.values())
+
+
+@logger.catch(onerror=lambda _: sys.exit(1))
+def list_components():
+    components = get_ecr_to_local_components_conjunction()
+
     print(tabulate(
-        [[c["ecr_image"], c["local_image"], c["host_path"]] for c in result.values()],
+        [[c["ecr_image"], c["local_image"], c["host_path"]] for c in components],
         headers=["ECR Image", "Local Image", "Local Folder"], tablefmt="orgtbl", missingval="na"
     ))
 

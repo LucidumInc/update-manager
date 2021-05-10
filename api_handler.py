@@ -4,18 +4,23 @@ import logging
 from typing import Optional
 
 import uvicorn
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, Request
+from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from jinja2 import Environment, BaseLoader
 from loguru import logger
 from pydantic import BaseModel
-from starlette.responses import JSONResponse
 
 from config_handler import get_lucidum_dir
 from healthcheck_handler import get_health_information
 
 AIRFLOW_DOCKER_FILENAME = "airflow_docker.py"
 
-router = APIRouter(prefix="/update-manager/api")
+root_router = APIRouter()
+api_router = APIRouter(prefix="/update-manager/api")
+
+templates = Jinja2Templates(directory="templates")
 
 
 class InterceptHandler(logging.Handler):
@@ -51,7 +56,7 @@ class AirflowModel(BaseModel):
     filename: Optional[str] = None
 
 
-@router.post("/airflow", tags=["airflow"])
+@api_router.post("/airflow", tags=["airflow"])
 def generate_airflow_dag_file(airflow: AirflowModel) -> dict:
     template = Environment(loader=BaseLoader(), extensions=["jinja2.ext.do"]).from_string(airflow.template)
     content = template.render(**airflow.data)
@@ -72,7 +77,7 @@ def generate_airflow_dag_file(airflow: AirflowModel) -> dict:
     }
 
 
-@router.get("/airflow", tags=["airflow"])
+@api_router.get("/airflow", tags=["airflow"])
 def get_airflow_dag_file() -> dict:
     try:
         with open(os.path.join(get_lucidum_dir(), "airflow", "dags", AIRFLOW_DOCKER_FILENAME)) as f:
@@ -87,9 +92,14 @@ def get_airflow_dag_file() -> dict:
     }
 
 
-@router.get("/healthcheck", tags=["health"])
+@api_router.get("/healthcheck", tags=["health"])
 def get_health_status() -> dict:
     return get_health_information()
+
+
+@root_router.get("/setup", response_class=HTMLResponse, tags=["setup"])
+def get_setup(request: Request):
+    return templates.TemplateResponse("index.html.jinja2", {"request": request})
 
 
 def startup_event() -> None:
@@ -115,7 +125,11 @@ def setup_exception_handlers(app_: FastAPI) -> None:
 
 def create_app() -> FastAPI:
     app_ = FastAPI()
-    app_.include_router(router)
+
+    app_.mount("/static", StaticFiles(directory="static", html=True), name="static")
+    app_.include_router(root_router)
+    app_.include_router(api_router)
+
     setup_startup_event(app_)
     setup_exception_handlers(app_)
     return app_

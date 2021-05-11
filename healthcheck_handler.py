@@ -73,13 +73,29 @@ def get_cpu_count(logical: bool = False) -> int:
 
 
 def check_ui_health() -> dict:
-    response = requests.get("https://localhost:443/CMDB/api/management/health", verify=False)
-    return response.json()
+    result = {}
+    try:
+        response = requests.get("https://localhost:443/CMDB/api/management/health", verify=False)
+        response.raise_for_status()
+        result.update(response.json())
+    except requests.RequestException as e:
+        logger.exception("Error when trying to get UI health: {}?!", e)
+        result["error"] = str(e)
+
+    return result
 
 
 def check_airflow_health() -> dict:
-    response = requests.get("http://localhost:9080/health")
-    return response.json()
+    result = {}
+    try:
+        response = requests.get("http://localhost:9080/health")
+        response.raise_for_status()
+        result.update(response.json())
+    except requests.RequestException as e:
+        logger.exception("Error when trying to get Airflow health: {}?!", e)
+        result["error"] = str(e)
+
+    return result
 
 
 def get_aws_credentials() -> dict:

@@ -50,6 +50,7 @@ def copy_files_from_docker_container(image: Image, docker_path, host_path):
         os.makedirs(host_path)
     else:
         logger.warning(f"host_path: {host_path} already exists, won't overwrite.")
+        return
     logger.info("Copy files from {} docker {} to host {}", image.tags, docker_path, host_path)
     container = docker_client.containers.create(image, 'bash')
     filename = os.path.join(host_path, "docker.tar")

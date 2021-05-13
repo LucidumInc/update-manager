@@ -79,3 +79,12 @@ def create_archive(filepath: str):
     tar.close()
     tar_stream.seek(0)
     return tar_stream
+
+
+def list_docker_containers(**kwargs):
+    return docker_client.containers.list(**kwargs)
+
+
+def get_container_stats(id_or_name, **kwargs):
+    container = docker_client.containers.get(id_or_name)
+    return container.stats(**kwargs)

@@ -2,16 +2,18 @@ import grp
 import platform
 import pwd
 import subprocess
+from datetime import datetime, timezone
 
 import boto3
 import distro
 import os
 import psutil
 import requests
+from dateutil import parser as dateutil_parser, relativedelta
 from loguru import logger
 from psutil._common import bytes2human
 
-from install_handler import get_ecr_to_local_components_conjunction
+from docker_service import list_docker_containers, get_container_stats
 
 
 def get_current_user() -> dict:
@@ -73,27 +75,29 @@ def get_cpu_count(logical: bool = False) -> int:
 
 
 def check_ui_health() -> dict:
-    result = {}
+    result = {"status": "OK"}
     try:
         response = requests.get("https://localhost:443/CMDB/api/management/health", verify=False)
         response.raise_for_status()
         result.update(response.json())
     except requests.RequestException as e:
         logger.exception("Error when trying to get UI health: {}?!", e)
-        result["error"] = str(e)
+        result["status"] = "FAILED"
+        result["message"] = str(e)
 
     return result
 
 
 def check_airflow_health() -> dict:
-    result = {}
+    result = {"status": "OK"}
     try:
         response = requests.get("http://localhost:9080/health")
         response.raise_for_status()
         result.update(response.json())
     except requests.RequestException as e:
         logger.exception("Error when trying to get Airflow health: {}?!", e)
-        result["error"] = str(e)
+        result["status"] = "FAILED"
+        result["message"] = str(e)
 
     return result
 
@@ -129,7 +133,14 @@ class BaseInfoCollector:
         raise NotImplementedError
 
 
-class CurrentUserInfoCollector(BaseInfoCollector):
+class SystemInfoCollector(BaseInfoCollector):
+    name = "system"
+
+    def __call__(self):
+        raise NotImplementedError
+
+
+class CurrentUserInfoCollector(SystemInfoCollector):
     name = "user"
 
     def __call__(self):
@@ -137,7 +148,7 @@ class CurrentUserInfoCollector(BaseInfoCollector):
         return user["pw_name"]
 
 
-class CurrentUserGroupsInfoCollector(BaseInfoCollector):
+class CurrentUserGroupsInfoCollector(SystemInfoCollector):
     name = "user_groups"
 
     def __call__(self):
@@ -145,7 +156,7 @@ class CurrentUserGroupsInfoCollector(BaseInfoCollector):
         return [group["gr_name"] for group in get_user_groups(user)]
 
 
-class OSInfoCollector(BaseInfoCollector):
+class OSInfoCollector(SystemInfoCollector):
     name = "os"
 
     def __call__(self):
@@ -153,27 +164,27 @@ class OSInfoCollector(BaseInfoCollector):
         return f"{data['dist']['name']} {data['dist']['version']}"
 
 
-class MemoryUsageInfoCollector(BaseInfoCollector):
+class MemoryUsageInfoCollector(SystemInfoCollector):
     name = "memory"
 
     def __call__(self):
         memory = get_memory_usage()
-        return {"total": memory["total"]}
+        return memory["total"]
 
 
-class DiskUsageInfoCollector(BaseInfoCollector):
+class DiskUsageInfoCollector(SystemInfoCollector):
     name = "disk"
 
     def __call__(self):
         disk = get_disk_usage("/")
-        return {"total": disk["total"]}
+        return disk["total"]
 
 
-class CPUUsageInfoCollector(BaseInfoCollector):
-    name = "cpu"
+class CPUUsageInfoCollector(SystemInfoCollector):
+    name = "cpu_cores"
 
     def __call__(self):
-        return {"cores": get_cpu_count()}
+        return get_cpu_count()
 
 
 class UIInfoCollector(BaseInfoCollector):
@@ -205,26 +216,69 @@ class AWSCredentialsInfoCollector(BaseInfoCollector):
     name = "aws"
 
     def __call__(self):
-        aws = get_aws_credentials()
-        return {
-            "access_key": generate_secret_string(aws["access_key"]),
-            "secret_key": generate_secret_string(aws["secret_key"]),
-        }
+        result = {"status": "OK"}
+        try:
+            aws = get_aws_credentials()
+            result.update({
+                "access_key": generate_secret_string(aws["access_key"]),
+                "secret_key": generate_secret_string(aws["secret_key"]),
+            })
+        except Exception as e:
+            logger.exception("Error during getting aws credentials: {}", e)
+            result["status"] = "FAILED"
+            result["message"] = str(e)
+
+        return result
 
 
 class ECRComponentsInfoCollector(BaseInfoCollector):
-    name = "components"
+    name = "containers"
 
     def __call__(self):
-        components = get_ecr_to_local_components_conjunction()
-        return {
-            "status": "OK" if components else "FAILED"
-        }
+        containers = []
+        for container in list_docker_containers():
+            stats = get_container_stats(container.id, stream=False)
+            cpu_percent = self._calculate_cpu_usage_percentage(stats["cpu_stats"], stats["precpu_stats"])
+            started_at = dateutil_parser.isoparse(container.attrs["State"]["StartedAt"])
+            diff = relativedelta.relativedelta(datetime.now(tz=timezone.utc), started_at)
+            containers.append({
+                "name": container.name,
+                "image": container.image.tags[0] if container.image.tags else "",
+                "container_id": container.short_id,
+                "cpu": f"{cpu_percent:.2f}%",
+                "memory": bytes2human(stats["memory_stats"]["usage"]),
+                "pid": container.attrs["State"]["Pid"],
+                "status": f"Up {diff.hours} hours"
+            })
+
+        return containers
+
+    def _calculate_cpu_usage_percentage(self, cpu_stats, precpu_stats):
+        cpu_count = len(cpu_stats["cpu_usage"]["percpu_usage"])
+        cpu_percent = 0.0
+        cpu_delta = float(cpu_stats["cpu_usage"]["total_usage"]) - float(precpu_stats["cpu_usage"]["total_usage"])
+        system_delta = float(cpu_stats["system_cpu_usage"]) - float(precpu_stats["system_cpu_usage"])
+        if system_delta > 0.0:
+            cpu_percent = cpu_delta / system_delta * 100.0 * cpu_count
+        return cpu_percent
+
+
+def _build_health_info_obj(collector, result: dict = None):
+    if result is None:
+        result = {}
+
+    subclasses = collector.__subclasses__()
+    if not subclasses:
+        collect_health_status = collector()
+        result[collector.name] = collect_health_status()
+    else:
+        if collector.name:
+            result[collector.name] = {}
+        for kls in subclasses:
+            _build_health_info_obj(kls, result[collector.name] if collector.name in result else result)
 
 
 def get_health_information():
     result = {}
-    for kls in BaseInfoCollector.__subclasses__():
-        collect_health_status = kls()
-        result[kls.name] = collect_health_status()
+    _build_health_info_obj(BaseInfoCollector, result)
     return result

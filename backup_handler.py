@@ -5,10 +5,10 @@ from datetime import datetime
 from pathlib import Path
 
 import os
-from docker import DockerClient
 from loguru import logger
 
-from config_handler import get_db_config, get_mongo_config, get_lucidum_dir, get_backup_dir, docker_client
+from config_handler import get_db_config, get_mongo_config, get_lucidum_dir, get_backup_dir
+from docker_service import get_docker_container
 from exceptions import AppError
 from file_handler import get_file_handler, LocalFileHandler
 
@@ -49,14 +49,8 @@ class BaseBackupRunner:
 class MySQLBackupRunner(BaseBackupRunner):
     backup_filename_format = "mysql_dump_{date}.sql"
 
-    def __init__(
-            self, name: str, file_handler, client: DockerClient, backup_dir: str = None, filepath: str = None
-    ) -> None:
-        super().__init__(name, file_handler, backup_dir=backup_dir, filepath=filepath)
-        self._client = client
-
     def __call__(self):
-        container = self._client.containers.get("mysql")
+        container = get_docker_container("mysql")
         dump_cmd = "mysqldump --user={mysql_user} {mysql_db}"
         db_config = get_db_config()
         logger.info("Dumping data for '{}' into {} file...", self.name, self.backup_file)
@@ -73,14 +67,8 @@ class MongoBackupRunner(BaseBackupRunner):
     container_dir = "/bitnami/mongodb"
     host_dir = "{}/mongo/db"
 
-    def __init__(
-            self, name: str, file_handler, client: DockerClient, backup_dir: str = None, filepath: str = None
-    ) -> None:
-        super().__init__(name, file_handler, backup_dir=backup_dir, filepath=filepath)
-        self._client = client
-
     def __call__(self):
-        container = self._client.containers.get("mongo")
+        container = get_docker_container("mongo")
         filename = f"{str(uuid.uuid4())}_mongo_dump.gz"
         dump_cmd = f"mongodump --username={{mongo_user}} --password={{mongo_pwd}} --authenticationDatabase=test_database --host={{mongo_host}} --port={{mongo_port}} --forceTableScan --archive={self.container_dir}/{filename} --gzip --db={{mongo_db}}"
         logger.info("Dumping data for '{}' into {} file...", self.name, self.backup_file)
@@ -116,17 +104,11 @@ class LucidumDirBackupRunner(BaseBackupRunner):
         "virtualenv",
     ]
 
-    def __init__(
-            self, name: str, file_handler, client: DockerClient, backup_dir: str = None, filepath: str = None
-    ) -> None:
-        super().__init__(name, file_handler, backup_dir=backup_dir, filepath=filepath)
-        self._client = client
-
     def __call__(self):
         lucidum_dir = get_lucidum_dir()
         local_file_handler = LocalFileHandler()
-        mysql_backup_file = MySQLBackupRunner("mysql", local_file_handler, self._client, backup_dir=lucidum_dir)()
-        mongo_backup_file = MongoBackupRunner("mongo", local_file_handler, self._client, backup_dir=lucidum_dir)()
+        mysql_backup_file = MySQLBackupRunner("mysql", local_file_handler, backup_dir=lucidum_dir)()
+        mongo_backup_file = MongoBackupRunner("mongo", local_file_handler, backup_dir=lucidum_dir)()
         excludes = " ".join(f"--exclude={f}" for f in self._items_to_exclude)
         backup_filepath = os.path.join(self.backup_dir, f"{str(uuid.uuid4())}_lucidum.tar.gz")
         dump_cmd = f"sudo tar -czvf {backup_filepath} {excludes} --directory={lucidum_dir} ."
@@ -149,12 +131,12 @@ def get_backup_runner(data_to_backup: str, filepath: str = None):
     backup_dir = get_backup_dir()
     file_handler = get_file_handler(filepath) if filepath is not None else LocalFileHandler()
     if data_to_backup == "mysql":
-        return MySQLBackupRunner(data_to_backup, file_handler, docker_client, backup_dir=backup_dir, filepath=filepath)
+        return MySQLBackupRunner(data_to_backup, file_handler, backup_dir=backup_dir, filepath=filepath)
     elif data_to_backup == "mongo":
-        return MongoBackupRunner(data_to_backup, file_handler, docker_client, backup_dir=backup_dir, filepath=filepath)
+        return MongoBackupRunner(data_to_backup, file_handler, backup_dir=backup_dir, filepath=filepath)
     elif data_to_backup == "lucidum":
         return LucidumDirBackupRunner(
-            data_to_backup, file_handler, docker_client, backup_dir=backup_dir, filepath=filepath
+            data_to_backup, file_handler, backup_dir=backup_dir, filepath=filepath
         )
     else:
         raise AppError(f"Cannot backup data for {data_to_backup}")

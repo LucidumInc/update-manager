@@ -1,5 +1,5 @@
 import time
-import sys
+
 import os
 import re
 import shutil
@@ -79,3 +79,7 @@ def create_archive(filepath: str):
     tar.close()
     tar_stream.seek(0)
     return tar_stream
+
+
+def get_docker_container(container_id):
+    return docker_client.containers.get(container_id)

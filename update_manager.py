@@ -105,10 +105,10 @@ def backup(data: tuple, filepath: str):
 
 
 @cli.command()
-@click.option("--data", "-d", multiple=True, required=True, type=(str, click.Path(exists=True, dir_okay=False)))
+@click.option("--data", "-d", multiple=True, required=True, type=(str, click.Path(dir_okay=False)))
 def restore(data):
     from restore_handler import restore as restore_lucidum
-    restore_lucidum([d for d in data])
+    restore_lucidum(list(data))
 
 
 if __name__ == '__main__':

@@ -19,6 +19,9 @@ class LocalFileHandler:
     def copy_file(self, src: str, dst: str):
         shutil.copyfile(src, dst)
 
+    def place_file(self, src: str, dst: str):
+        shutil.copyfile(src, dst)
+
 
 class S3FileHandler:
 
@@ -45,6 +48,11 @@ class S3FileHandler:
         bucket_name, key = self._parse_url(dst)
         obj = self.s3_resource.Object(bucket_name, key)
         obj.upload_file(src)
+
+    def place_file(self, src: str, dst: str):
+        bucket_name, key = self._parse_url(src)
+        obj = self.s3_resource.Object(bucket_name, key)
+        obj.download_file(dst)
 
 
 def get_file_handler(path: str):

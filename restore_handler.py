@@ -33,6 +33,13 @@ class BaseRestoreRunner:
         self.filepath = filepath
         self.file_handler = file_handler
 
+    def get_backup_filepath(self) -> str:
+        backup_dir = get_backup_dir()
+        os.makedirs(backup_dir, exist_ok=True)
+        backup_filepath = os.path.join(backup_dir, str(uuid.uuid4()))
+        self.file_handler.place_file(self.filepath, backup_filepath)
+        return backup_filepath
+
     def __call__(self):
         raise NotImplementedError
 
@@ -43,8 +50,7 @@ class MySQLRestoreRunner(BaseRestoreRunner):
     @log_wrap
     def __call__(self):
         container = get_docker_container("mysql")
-        local_filepath = os.path.join(get_backup_dir(), str(uuid.uuid4()))
-        self.file_handler.place_file(self.filepath, local_filepath)
+        local_filepath = self.get_backup_filepath()
         tar_stream = create_archive(local_filepath)
         success = container.put_archive(self.container_dest_dir, tar_stream)
         if not success:
@@ -77,8 +83,7 @@ class MongoRestoreRunner(BaseRestoreRunner):
         if self._web_stop:
             subprocess.run([docker_compose_executable, "stop", self.web_service], cwd=lucidum_dir, check=True)
         container = get_docker_container("mongo")
-        local_filepath = os.path.join(get_backup_dir(), str(uuid.uuid4()))
-        self.file_handler.place_file(self.filepath, local_filepath)
+        local_filepath = self.get_backup_filepath()
         tar_stream = create_archive(local_filepath)
         success = container.put_archive(self.container_dest_dir, tar_stream)
         if not success:
@@ -108,8 +113,7 @@ class LucidumDirRestoreRunner(BaseRestoreRunner):
         docker_compose_executable = shutil.which("docker-compose")
         subprocess.run([docker_compose_executable, "stop", self.web_service], cwd=lucidum_dir, check=True)
         mysql_dump_file = mongo_dump_file = None
-        local_filepath = os.path.join(get_backup_dir(), str(uuid.uuid4()))
-        self.file_handler.place_file(self.filepath, local_filepath)
+        local_filepath = self.get_backup_filepath()
         restore_cmd = f"sudo tar -xvf {local_filepath} --directory={lucidum_dir}"
         try:
             try:

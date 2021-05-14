@@ -10,6 +10,7 @@ import os
 import psutil
 import requests
 from dateutil import parser as dateutil_parser, relativedelta
+from dynaconf import settings
 from loguru import logger
 from psutil._common import bytes2human
 
@@ -215,13 +216,16 @@ def generate_secret_string(value: str, last_visible: int = 4) -> str:
 class AWSCredentialsInfoCollector(BaseInfoCollector):
     name = "aws"
 
+    _not_available = "N/A"
+
     def __call__(self):
         result = {"status": "OK"}
         try:
-            aws = get_aws_credentials()
+            access_key = settings.get("AWS_ACCESS_KEY")
+            secret_key = settings.get("AWS_SECRET_KEY")
             result.update({
-                "access_key": generate_secret_string(aws["access_key"]),
-                "secret_key": generate_secret_string(aws["secret_key"]),
+                "access_key": generate_secret_string(access_key) if access_key else self._not_available,
+                "secret_key": generate_secret_string(secret_key) if secret_key else self._not_available,
             })
         except Exception as e:
             logger.exception("Error during getting aws credentials: {}", e)

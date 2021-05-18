@@ -16,31 +16,24 @@ from file_handler import get_file_handler, LocalFileHandler
 class BaseBackupRunner:
     backup_filename_format = None
 
-    def __init__(self, name: str, file_handler, backup_dir: str = None, filepath: str = None) -> None:
+    def __init__(self, name: str, file_handler, backup_dir: str = None, path: str = None) -> None:
         self.name = name
         self.file_handler = file_handler
         self.backup_dir = backup_dir
-        if filepath:
-            self._validate_file_extension(filepath)
-        self._filepath = filepath
+        self._path = path
         self.datetime_now = datetime.now()
         if self.backup_dir is not None:
             os.makedirs(backup_dir, exist_ok=True)
 
     @property
     def backup_file(self):
-        if self._filepath:
-            backup_file = self._filepath
+        backup_file = self.backup_filename_format.format(date=self.datetime_now.strftime('%Y%m%d_%H%M%S'))
+        if self._path:
+            backup_file = self.file_handler.get_file_path(self._path, backup_file)
         else:
-            backup_file = self.backup_filename_format.format(date=self.datetime_now.strftime('%Y%m%d_%H%M%S'))
             if self.backup_dir is not None:
                 backup_file = os.path.join(self.backup_dir, backup_file)
         return backup_file
-
-    def _validate_file_extension(self, filepath):
-        file_ext = "".join(Path(self.backup_filename_format).suffixes)
-        if filepath and not filepath.endswith(file_ext):
-            raise Exception(f"File for '{self.name}' backup should have '{file_ext}' extension")
 
     def __call__(self):
         raise NotImplementedError
@@ -131,12 +124,12 @@ def get_backup_runner(data_to_backup: str, filepath: str = None):
     backup_dir = get_backup_dir()
     file_handler = get_file_handler(filepath) if filepath is not None else LocalFileHandler()
     if data_to_backup == "mysql":
-        return MySQLBackupRunner(data_to_backup, file_handler, backup_dir=backup_dir, filepath=filepath)
+        return MySQLBackupRunner(data_to_backup, file_handler, backup_dir=backup_dir, path=filepath)
     elif data_to_backup == "mongo":
-        return MongoBackupRunner(data_to_backup, file_handler, backup_dir=backup_dir, filepath=filepath)
+        return MongoBackupRunner(data_to_backup, file_handler, backup_dir=backup_dir, path=filepath)
     elif data_to_backup == "lucidum":
         return LucidumDirBackupRunner(
-            data_to_backup, file_handler, backup_dir=backup_dir, filepath=filepath
+            data_to_backup, file_handler, backup_dir=backup_dir, path=filepath
         )
     else:
         raise AppError(f"Cannot backup data for {data_to_backup}")

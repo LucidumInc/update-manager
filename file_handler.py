@@ -1,6 +1,7 @@
 from urllib.parse import urlparse
 
 import boto3
+import os
 import shutil
 
 
@@ -21,6 +22,12 @@ class LocalFileHandler:
 
     def place_file(self, src: str, dst: str):
         shutil.copyfile(src, dst)
+
+    def get_file_path(self, path: str, filename: str) -> str:
+        filepath = path
+        if os.path.isdir(path):
+            filepath = os.path.join(path, filename)
+        return filepath
 
 
 class S3FileHandler:
@@ -53,6 +60,17 @@ class S3FileHandler:
         bucket_name, key = self._parse_url(src)
         obj = self.s3_resource.Object(bucket_name, key)
         obj.download_file(dst)
+
+    def get_file_path(self, path: str, filename: str) -> str:
+        parsed = urlparse(path, allow_fragments=False)
+        filepath = path
+        url_path = parsed.path.lstrip("/")
+        if url_path:
+            if url_path.endswith("/"):
+                filepath = f"{parsed.scheme}://{parsed.netloc}/{url_path}{filename}"
+        else:
+            filepath = f"{parsed.scheme}://{parsed.netloc}/{filename}"
+        return filepath
 
 
 def get_file_handler(path: str):

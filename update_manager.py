@@ -98,7 +98,7 @@ def import_(db, source, destination):
 
 @cli.command()
 @click.option("--data", "-d", multiple=True, default=["lucidum"], type=click.Choice(['mysql', 'mongo', 'lucidum']))
-@click.option("--filepath", "-f", type=click.Path(dir_okay=False))
+@click.option("--filepath", "-f", type=click.Path())
 def backup(data: tuple, filepath: str):
     from backup_handler import backup as backup_lucidum
     backup_lucidum(list(data), filepath)

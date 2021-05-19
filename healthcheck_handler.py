@@ -15,6 +15,7 @@ from loguru import logger
 from psutil._common import bytes2human
 
 from docker_service import list_docker_containers, get_container_stats
+from exceptions import AppError
 
 
 def get_current_user() -> dict:
@@ -114,17 +115,16 @@ def get_aws_credentials() -> dict:
 
 
 def check_cron_health() -> dict:
-    status = "active"
+    result = {"status": "OK"}
     command = "systemctl is-active cron"
     try:
         subprocess.run(command.split(), check=True)
     except Exception as e:
-        status = "inactive"
         logger.exception("Error during getting status of cron service: {}", e)
+        result["status"] = "FAILED"
+        result["message"] = str(e)
 
-    return {
-        "status": status
-    }
+    return result
 
 
 class BaseInfoCollector:
@@ -239,23 +239,34 @@ class ECRComponentsInfoCollector(BaseInfoCollector):
     name = "containers"
 
     def __call__(self):
+        result = {"status": "OK"}
         containers = []
-        for container in list_docker_containers():
-            stats = get_container_stats(container.id, stream=False)
-            cpu_percent = self._calculate_cpu_usage_percentage(stats["cpu_stats"], stats["precpu_stats"])
-            started_at = dateutil_parser.isoparse(container.attrs["State"]["StartedAt"])
-            diff = relativedelta.relativedelta(datetime.now(tz=timezone.utc), started_at)
-            containers.append({
-                "name": container.name,
-                "image": container.image.tags[0] if container.image.tags else "",
-                "container_id": container.short_id,
-                "cpu": f"{cpu_percent:.2f}%",
-                "memory": bytes2human(stats["memory_stats"]["usage"]),
-                "pid": container.attrs["State"]["Pid"],
-                "status": f"Up {diff.hours} hours"
-            })
+        try:
+            for container in list_docker_containers():
+                stats = get_container_stats(container.id, stream=False)
+                cpu_percent = self._calculate_cpu_usage_percentage(stats["cpu_stats"], stats["precpu_stats"])
+                started_at = dateutil_parser.isoparse(container.attrs["State"]["StartedAt"])
+                diff = relativedelta.relativedelta(datetime.now(tz=timezone.utc), started_at)
+                containers.append({
+                    "name": container.name,
+                    "image": container.image.tags[0] if container.image.tags else "",
+                    "container_id": container.short_id,
+                    "cpu": f"{cpu_percent:.2f}%",
+                    "memory": bytes2human(stats["memory_stats"]["usage"]),
+                    "pid": container.attrs["State"]["Pid"],
+                    "status": f"Up {diff.hours} hours"
+                })
+            if not containers:
+                result["status"] = "FAILED"
+                result["message"] = "No containers"
+            else:
+                result["data"] = containers
+        except Exception as e:
+            logger.exception("Error during getting docker containers: {}", e)
+            result["status"] = "FAILED"
+            result["message"] = str(e)
 
-        return containers
+        return result
 
     def _calculate_cpu_usage_percentage(self, cpu_stats, precpu_stats):
         cpu_count = len(cpu_stats["cpu_usage"]["percpu_usage"])
@@ -277,12 +288,25 @@ def _build_health_info_obj(collector, result: dict = None):
         result[collector.name] = collect_health_status()
     else:
         if collector.name:
-            result[collector.name] = {}
-        for kls in subclasses:
-            _build_health_info_obj(kls, result[collector.name] if collector.name in result else result)
+            result[collector.name] = {"status": "OK"}
+        try:
+            for kls in subclasses:
+                _build_health_info_obj(kls, result[collector.name] if collector.name in result else result)
+        except Exception as e:
+            if collector.name:
+                result[collector.name]["status"] = "FAILED"
+                result[collector.name]["message"] = str(e)
 
 
-def get_health_information():
+def get_health_information(category: str = None):
     result = {}
-    _build_health_info_obj(BaseInfoCollector, result)
+    collector = BaseInfoCollector
+    if category:
+        for kls in BaseInfoCollector.__subclasses__():
+            if kls.name == category:
+                collector = kls
+                break
+        else:
+            raise AppError(f"No such category: {category}")
+    _build_health_info_obj(collector, result)
     return result

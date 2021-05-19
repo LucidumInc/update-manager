@@ -13,6 +13,7 @@ from loguru import logger
 from pydantic import BaseModel
 
 from config_handler import get_lucidum_dir
+from exceptions import AppError
 from healthcheck_handler import get_health_information
 
 AIRFLOW_DOCKER_FILENAME = "airflow_docker.py"
@@ -93,8 +94,13 @@ def get_airflow_dag_file() -> dict:
 
 
 @api_router.get("/healthcheck", tags=["health"])
-def get_health_status() -> dict:
-    return get_health_information()
+@api_router.get("/healthcheck/{category}", tags=["health"])
+def get_health_status(category: str = None) -> dict:
+    try:
+        result = get_health_information(category)
+    except AppError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    return result
 
 
 @root_router.get("/setup", response_class=HTMLResponse, tags=["setup"])

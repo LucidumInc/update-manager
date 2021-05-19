@@ -1,5 +1,5 @@
 import time
-import sys
+
 import os
 import re
 import shutil
@@ -46,16 +46,16 @@ def remove_docker_image(image: str) -> None:
 
 
 def copy_files_from_docker_container(image: Image, docker_path, host_path):
+    if not os.path.exists(host_path):
+        os.makedirs(host_path)
+    else:
+        logger.warning(f"host_path: {host_path} already exists, won't overwrite.")
+        return
     logger.info("Copy files from {} docker {} to host {}", image.tags, docker_path, host_path)
     container = docker_client.containers.create(image, 'bash')
     filename = os.path.join(host_path, "docker.tar")
     try:
         bits, _ = container.get_archive(f"{docker_path}/.")
-        if not os.path.exists(host_path):
-            os.makedirs(host_path)
-        else:
-            logger.warning(f"host_path: {host_path} already exists")
-            sys.exit(-1)
         with open(filename, 'wb') as f:
             for chunk in bits:
                 f.write(chunk)
@@ -88,3 +88,7 @@ def list_docker_containers(**kwargs):
 def get_container_stats(id_or_name, **kwargs):
     container = docker_client.containers.get(id_or_name)
     return container.stats(**kwargs)
+
+
+def get_docker_container(container_id):
+    return docker_client.containers.get(container_id)

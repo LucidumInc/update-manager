@@ -25,7 +25,7 @@ class LocalFileHandler:
 
     def get_file_path(self, path: str, filename: str) -> str:
         filepath = path
-        if os.path.isdir(path):
+        if path.endswith("/"):
             filepath = os.path.join(path, filename)
         return filepath
 

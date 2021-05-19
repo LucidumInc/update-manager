@@ -8,12 +8,13 @@ from docker.models.images import Image
 from io import BytesIO
 from loguru import logger
 
-from config_handler import ecr_client, docker_client
+from config_handler import get_ecr_client, docker_client
 
 ECR_REGISTRY_PATTERN = r"\d{12}\.dkr\.ecr\.[a-z0-9-]+\.amazonaws\.com/.+"
 
 
 def _pull_docker_image_from_ecr(repository: str, tag: str = None):
+    ecr_client = get_ecr_client()
     auth_config = {"username": ecr_client.auth_config["username"], "password": ecr_client.auth_config["password"]}
     docker_client.images.pull(repository, tag=tag, auth_config=auth_config)
 

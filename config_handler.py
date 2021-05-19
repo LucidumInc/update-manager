@@ -1,6 +1,4 @@
-import os
 from base64 import urlsafe_b64encode
-import json
 from cryptography.fernet import Fernet
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -11,9 +9,6 @@ from aws_service import ECRClient
 from exceptions import AppError
 
 docker_client = DockerClient.from_env()
-ecr_client = ECRClient(settings.get("AWS_REGION", "us-west-1"),
-                       settings.get("AWS_ACCESS_KEY"),
-                       settings.get("AWS_SECRET_KEY"))
 
 
 def required_field_check(field):
@@ -99,6 +94,15 @@ def get_mongo_config():
     }
 
 
+def get_ecr_client():
+    settings.reload()
+    return ECRClient(
+        settings.get("AWS_REGION", "us-west-1"),
+        settings.get("AWS_ACCESS_KEY"),
+        settings.get("AWS_SECRET_KEY")
+    )
+
+
 def get_ecr_image_list():
     return []
 
@@ -141,6 +145,7 @@ def get_image_path_mapping(lucidum_dir, image_name, image_tag):
 
 
 def get_images_from_ecr():
+    ecr_client = get_ecr_client()
     lucidum_base = get_lucidum_dir()
     images = []
     for repository in ecr_client.get_repositories():

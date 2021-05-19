@@ -1,6 +1,7 @@
 import os
 import sys
 import logging
+import importlib
 from typing import Optional
 
 import uvicorn
@@ -57,6 +58,11 @@ class AirflowModel(BaseModel):
     filename: Optional[str] = None
 
 
+class PostAWSModel(BaseModel):
+    aws_access_key: Optional[str] = None
+    aws_secret_key: Optional[str] = None
+
+
 @api_router.post("/airflow", tags=["airflow"])
 def generate_airflow_dag_file(airflow: AirflowModel) -> dict:
     template = Environment(loader=BaseLoader(), extensions=["jinja2.ext.do"]).from_string(airflow.template)
@@ -101,6 +107,27 @@ def get_health_status(category: str = None) -> dict:
     except AppError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     return result
+
+
+def write_settings(filename, data):
+    loader_name = f"{filename.rpartition('.')[-1]}_loader"
+    loader = importlib.import_module(f"dynaconf.loaders.{loader_name}")
+    loader.write(filename, data, merge=True)
+
+
+@api_router.post("/aws", tags=["aws"])
+def update_aws_settings(config: PostAWSModel) -> dict:
+    global_config = {}
+    if config.aws_access_key:
+        global_config["aws_access_key"] = config.aws_access_key
+    if config.aws_secret_key:
+        global_config["aws_secret_key"] = config.aws_secret_key
+    write_settings("settings.toml", {"global": global_config})
+
+    return {
+        "status": "OK",
+        "message": "success",
+    }
 
 
 @root_router.get("/setup", response_class=HTMLResponse, tags=["setup"])

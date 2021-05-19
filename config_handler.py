@@ -84,6 +84,11 @@ def get_db_config():
     }
 
 
+def get_aws_config() -> tuple:
+    settings.reload()
+    return settings.get("AWS_ACCESS_KEY"), settings.get("AWS_SECRET_KEY")
+
+
 def get_mongo_config():
     return {
         "mongo_host": required_field_check('MONGO_CONFIG.MONGO_HOST'),
@@ -95,11 +100,9 @@ def get_mongo_config():
 
 
 def get_ecr_client():
-    settings.reload()
+    access_key, secret_key = get_aws_config()
     return ECRClient(
-        settings.get("AWS_REGION", "us-west-1"),
-        settings.get("AWS_ACCESS_KEY"),
-        settings.get("AWS_SECRET_KEY")
+        settings.get("AWS_REGION", "us-west-1"), access_key, secret_key
     )
 
 

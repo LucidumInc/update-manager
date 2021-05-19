@@ -1,23 +1,18 @@
 import sys
 
 import os
-
-from docker import DockerClient
 from loguru import logger
 
-from config_handler import docker_client, get_mongo_config
-from docker_service import create_archive
+from config_handler import get_mongo_config
+from docker_service import create_archive, get_docker_container
 from exceptions import AppError
 
 
 class MongoImportRunner:
     container_dest_dir = "/home"
 
-    def __init__(self, client: DockerClient) -> None:
-        self.client = client
-
     def __call__(self, source, destination):
-        container = self.client.containers.get("mongo")
+        container = get_docker_container("mongo")
         tar_stream = create_archive(source)
         success = container.put_archive(self.container_dest_dir, tar_stream)
         if not success:
@@ -36,7 +31,7 @@ class MongoImportRunner:
 
 def _get_import_runner(db):
     if db == "mongo":
-        return MongoImportRunner(docker_client)
+        return MongoImportRunner()
 
 
 @logger.catch(onerror=lambda _: sys.exit(1))

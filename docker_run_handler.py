@@ -2,7 +2,8 @@ import sys
 
 from loguru import logger
 
-from config_handler import docker_client, get_local_images
+from config_handler import get_local_images
+from docker_service import run_docker_container
 from exceptions import AppError
 
 NETWORK = "lucidum_default"
@@ -22,7 +23,7 @@ def run_command(image_data: dict, cmd: str):
         }
     message.append(f"Network: {NETWORK}")
     logger.info("Docker run parameters:\n{}", "\n".join(message))
-    docker_client.containers.run(image_name, remove=True, network=NETWORK, command=cmd, **kwargs)
+    run_docker_container(image_name, remove=True, network=NETWORK, command=cmd, **kwargs)
 
 
 @logger.catch(onerror=lambda _: sys.exit(1))

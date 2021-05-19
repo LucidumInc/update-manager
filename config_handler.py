@@ -8,7 +8,7 @@ from dynaconf import settings
 from aws_service import ECRClient
 from exceptions import AppError
 
-docker_client = DockerClient.from_env()
+_docker_client = None
 
 
 def required_field_check(field):
@@ -103,6 +103,13 @@ def get_ecr_client():
     )
 
 
+def get_docker_client() -> DockerClient:
+    global _docker_client
+    if _docker_client is None:
+        _docker_client = DockerClient.from_env()
+    return _docker_client
+
+
 def get_ecr_image_list():
     return []
 
@@ -162,6 +169,7 @@ def get_images_from_ecr():
 
 
 def get_local_images():
+    docker_client = get_docker_client()
     lucidum_dir = get_lucidum_dir()
     images = []
     for image in docker_client.images.list():

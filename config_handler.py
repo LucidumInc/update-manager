@@ -1,6 +1,4 @@
-import os
 from base64 import urlsafe_b64encode
-import json
 from cryptography.fernet import Fernet
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -10,10 +8,7 @@ from dynaconf import settings
 from aws_service import ECRClient
 from exceptions import AppError
 
-docker_client = DockerClient.from_env()
-ecr_client = ECRClient(settings.get("AWS_REGION", "us-west-1"),
-                       settings.get("AWS_ACCESS_KEY"),
-                       settings.get("AWS_SECRET_KEY"))
+_docker_client = None
 
 
 def required_field_check(field):
@@ -89,6 +84,11 @@ def get_db_config():
     }
 
 
+def get_aws_config() -> tuple:
+    settings.reload()
+    return settings.get("AWS_ACCESS_KEY"), settings.get("AWS_SECRET_KEY")
+
+
 def get_mongo_config():
     return {
         "mongo_host": required_field_check('MONGO_CONFIG.MONGO_HOST'),
@@ -97,6 +97,20 @@ def get_mongo_config():
         "mongo_port": required_field_check('MONGO_CONFIG.MONGO_PORT'),
         "mongo_db": required_field_check('MONGO_CONFIG.MONGO_DB'),
     }
+
+
+def get_ecr_client():
+    access_key, secret_key = get_aws_config()
+    return ECRClient(
+        settings.get("AWS_REGION", "us-west-1"), access_key, secret_key
+    )
+
+
+def get_docker_client() -> DockerClient:
+    global _docker_client
+    if _docker_client is None:
+        _docker_client = DockerClient.from_env()
+    return _docker_client
 
 
 def get_ecr_image_list():
@@ -141,6 +155,7 @@ def get_image_path_mapping(lucidum_dir, image_name, image_tag):
 
 
 def get_images_from_ecr():
+    ecr_client = get_ecr_client()
     lucidum_base = get_lucidum_dir()
     images = []
     for repository in ecr_client.get_repositories():
@@ -157,6 +172,7 @@ def get_images_from_ecr():
 
 
 def get_local_images():
+    docker_client = get_docker_client()
     lucidum_dir = get_lucidum_dir()
     images = []
     for image in docker_client.images.list():

@@ -97,21 +97,18 @@ def import_(db, source, destination):
 
 
 @cli.command()
-@click.option("--data", "-d", multiple=True, type=click.Choice(['mysql', 'mongo', 'lucidum']))
-@click.option("--filepath", "-f", type=click.Path(dir_okay=False))
+@click.option("--data", "-d", multiple=True, default=["lucidum"], type=click.Choice(['mysql', 'mongo', 'lucidum']))
+@click.option("--filepath", "-f", type=click.Path())
 def backup(data: tuple, filepath: str):
     from backup_handler import backup as backup_lucidum
-    backup_data = [d for d in data]
-    if not backup_data:
-        backup_data = ["lucidum"]
-    backup_lucidum(backup_data, filepath)
+    backup_lucidum(list(data), filepath)
 
 
 @cli.command()
-@click.option("--data", "-d", multiple=True, required=True, type=(str, click.Path(exists=True, dir_okay=False)))
+@click.option("--data", "-d", multiple=True, required=True, type=(str, click.Path(dir_okay=False)))
 def restore(data):
     from restore_handler import restore as restore_lucidum
-    restore_lucidum([d for d in data])
+    restore_lucidum(list(data))
 
 
 if __name__ == '__main__':

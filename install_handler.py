@@ -14,9 +14,9 @@ from loguru import logger
 from tabulate import tabulate
 
 from config_handler import get_archive_config, get_lucidum_dir, get_jinja_templates_dir, \
-    get_docker_compose_tmplt_file, get_ecr_images, get_images_from_ecr, docker_client, \
-    get_local_images
-from docker_service import load_docker_images, pull_docker_image, copy_files_from_docker_container, remove_docker_image
+    get_docker_compose_tmplt_file, get_ecr_images, get_images_from_ecr, get_local_images
+from docker_service import load_docker_images, pull_docker_image, copy_files_from_docker_container, \
+    remove_docker_image, list_docker_images, get_docker_image
 from exceptions import AppError
 
 _jinja_env = Environment(loader=FileSystemLoader(get_jinja_templates_dir()))
@@ -111,7 +111,7 @@ def load_docker_images_from_file(release_dir: str) -> None:
 
 def check_release_versions_exist(release_images: list) -> None:
     """Check if given release images exist within docker."""
-    docker_images = [tag for image in docker_client.images.list() for tag in image.tags]
+    docker_images = [tag for image in list_docker_images() for tag in image.tags]
     missed_docker_images = []
     for image in release_images:
         docker_image = f"{image['name']}:{image['version']}"
@@ -167,7 +167,7 @@ class DockerImagesUpdater:
         logger.info(image_data)
         image_tag = f"{image_data['name']}:{image_data['version']}"
         try:
-            old_image = docker_client.images.get(image_tag)
+            old_image = get_docker_image(image_tag)
         except:
             logger.info(f'{image_tag} local image does not exist!')
             old_image = None
@@ -192,7 +192,7 @@ class DockerImagesUpdater:
             restart_docker_compose_services()
         for image in self._images_to_remove:
             try:
-                remove_docker_image(image)
+                remove_docker_image(image, force=True)
             except APIError as e:
                 logger.warning(e)
 
@@ -258,11 +258,12 @@ def remove_components(components):
             rm_path = os.path.join(lucidum_dir, rel_path.split("/")[0])
             logger.info("Removing '{}' directory...", rm_path)
             shutil.rmtree(rm_path)
-        _remove_image(component)
+        result = list_docker_images(name=component)
+        if result:
+            remove_docker_image(component, force=True)
 
 
-@logger.catch(onerror=lambda _: sys.exit(1))
-def list_components():
+def get_ecr_to_local_components_conjunction() -> list:
     local_images = get_local_images()
     ecr_images = get_images_from_ecr()
 
@@ -290,17 +291,17 @@ def list_components():
                 "host_path": host_path
             }
 
+    return list(result.values())
+
+
+@logger.catch(onerror=lambda _: sys.exit(1))
+def list_components():
+    components = get_ecr_to_local_components_conjunction()
+
     print(tabulate(
-        [[c["ecr_image"], c["local_image"], c["host_path"]] for c in result.values()],
+        [[c["ecr_image"], c["local_image"], c["host_path"]] for c in components],
         headers=["ECR Image", "Local Image", "Local Folder"], tablefmt="orgtbl", missingval="na"
     ))
-
-
-def _remove_image(image_name):
-    result = docker_client.images.list(image_name)
-    if result:
-        logger.info("Removing '{}' image...", image_name)
-        docker_client.images.remove(image_name, True)
 
 
 def _check_path(path):

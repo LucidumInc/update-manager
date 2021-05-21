@@ -108,6 +108,7 @@ command:
       - docutils               0.15.2
       - dynaconf               3.0.0
       - email-validator        1.1.2
+      - fastapi                0.65.1
       - flask-swagger          0.2.13
       - funcsigs               1.0.2
       - future                 0.16.0
@@ -142,6 +143,7 @@ command:
       - psycopg2-binary        2.8.6
       - pyasn1                 0.4.8
       - pycparser              2.20
+      - pydantic               1.8.2
       - pymongo                3.11.2
       - pyrsistent             0.17.3
       - python-crontab         2.5.1
@@ -156,6 +158,7 @@ command:
       - s3transfer             0.3.4
       - setproctitle           1.2.2
       - six                    1.15.0
+      - starlette              0.14.2
       - tabulate               0.8.7
       - tenacity               4.12.0
       - termcolor              1.1.0
@@ -166,6 +169,7 @@ command:
       - tzlocal                1.5.1
       - unicodecsv             0.14.1
       - urllib3                1.25.11
+      - uvicorn                0.13.4
       - vine                   5.0.0
       - wcwidth                0.2.5
       - websocket-client       0.57.0

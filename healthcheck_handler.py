@@ -13,7 +13,7 @@ from dateutil import parser as dateutil_parser, relativedelta
 from loguru import logger
 from psutil._common import bytes2human
 
-from config_handler import get_aws_config
+from config_handler import get_aws_config, get_ecr_client
 from docker_service import list_docker_containers, get_container_stats
 from exceptions import AppError
 
@@ -112,15 +112,6 @@ def get_aws_credentials() -> dict:
     return {
         attribute: getattr(credentials, attribute) for attribute in attributes
     }
-
-
-def validate_aws_credentials(access_key=None, secret_key=None):
-    client_kwargs = {}
-    if access_key and secret_key:
-        client_kwargs["aws_access_key_id"] = access_key
-        client_kwargs["aws_secret_access_key"] = secret_key
-    sts = boto3.client("sts", **client_kwargs)
-    return sts.get_caller_identity()
 
 
 def check_cron_health() -> dict:
@@ -231,7 +222,8 @@ class AWSCredentialsInfoCollector(BaseInfoCollector):
         result = {"status": "OK"}
         access_key, secret_key = get_aws_config()
         try:
-            validate_aws_credentials(access_key, secret_key)
+            ecr_client = get_ecr_client(access_key, secret_key)
+            ecr_client.get_repositories()
         except Exception as e:
             logger.exception("Error during getting aws credentials: {}", e)
             result["status"] = "FAILED"

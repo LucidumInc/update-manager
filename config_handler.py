@@ -99,8 +99,7 @@ def get_mongo_config():
     }
 
 
-def get_ecr_client():
-    access_key, secret_key = get_aws_config()
+def get_ecr_client(access_key: str = None, secret_key: str = None) -> ECRClient:
     return ECRClient(
         settings.get("AWS_REGION", "us-west-1"), access_key, secret_key
     )
@@ -155,7 +154,8 @@ def get_image_path_mapping(lucidum_dir, image_name, image_tag):
 
 
 def get_images_from_ecr():
-    ecr_client = get_ecr_client()
+    access_key, secret_key = get_aws_config()
+    ecr_client = get_ecr_client(access_key, secret_key)
     lucidum_base = get_lucidum_dir()
     images = []
     for repository in ecr_client.get_repositories():

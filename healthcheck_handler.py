@@ -13,7 +13,7 @@ from dateutil import parser as dateutil_parser, relativedelta
 from loguru import logger
 from psutil._common import bytes2human
 
-from config_handler import get_aws_config
+from config_handler import get_aws_config, get_ecr_client
 from docker_service import list_docker_containers, get_container_stats
 from exceptions import AppError
 
@@ -220,16 +220,19 @@ class AWSCredentialsInfoCollector(BaseInfoCollector):
 
     def __call__(self):
         result = {"status": "OK"}
+        access_key, secret_key = get_aws_config()
         try:
-            access_key, secret_key = get_aws_config()
-            result.update({
-                "access_key": generate_secret_string(access_key) if access_key else self._not_available,
-                "secret_key": generate_secret_string(secret_key) if secret_key else self._not_available,
-            })
+            ecr_client = get_ecr_client(access_key, secret_key)
+            ecr_client.get_repositories()
         except Exception as e:
             logger.exception("Error during getting aws credentials: {}", e)
             result["status"] = "FAILED"
             result["message"] = str(e)
+
+        result.update({
+            "access_key": generate_secret_string(access_key) if access_key else self._not_available,
+            "secret_key": generate_secret_string(secret_key) if secret_key else self._not_available,
+        })
 
         return result
 

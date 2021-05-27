@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from jinja2 import Environment, BaseLoader
 from loguru import logger
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 
 from config_handler import get_lucidum_dir
 from exceptions import AppError
@@ -52,6 +52,12 @@ def setup_logging() -> None:
         logger_.handlers = [InterceptHandler()]
 
 
+def check_value_not_empty(v: str) -> Optional[str]:
+    if v is not None and len(v) == 0:
+        raise ValueError("must not be empty")
+    return v
+
+
 class AirflowModel(BaseModel):
     template: str
     data: dict
@@ -61,6 +67,9 @@ class AirflowModel(BaseModel):
 class PostAWSModel(BaseModel):
     aws_access_key: Optional[str] = None
     aws_secret_key: Optional[str] = None
+
+    _validate_access_key = validator("aws_access_key", allow_reuse=True)(check_value_not_empty)
+    _validate_secret_key = validator("aws_secret_key", allow_reuse=True)(check_value_not_empty)
 
 
 @api_router.post("/airflow", tags=["airflow"])
@@ -117,11 +126,10 @@ def write_settings(filename, data):
 
 @api_router.post("/aws", tags=["aws"])
 def update_aws_settings(config: PostAWSModel) -> dict:
-    global_config = {}
-    if config.aws_access_key:
-        global_config["aws_access_key"] = config.aws_access_key
-    if config.aws_secret_key:
-        global_config["aws_secret_key"] = config.aws_secret_key
+    global_config = {
+        "aws_access_key": config.aws_access_key,
+        "aws_secret_key": config.aws_secret_key,
+    }
     write_settings("settings.toml", {"global": global_config})
 
     return {

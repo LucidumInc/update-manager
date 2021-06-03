@@ -127,6 +127,50 @@ def check_cron_health() -> dict:
     return result
 
 
+def get_systemctl_service_status(service_name: str, super_user: bool = False):
+    command = f"{'sudo ' if super_user else ''}systemctl is-active {service_name}"
+    try:
+        result = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output = result.stdout
+    except subprocess.CalledProcessError as e:
+        logger.error(e)
+        output = e.stdout
+    return output.decode().strip()
+
+
+def get_journalctl_service_logs(service_name: str):
+    command = f"journalctl -u {service_name} -n 50"
+    try:
+        result = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output = result.stdout
+    except subprocess.CalledProcessError as e:
+        logger.error(e)
+        output = e.stdout
+    return output.decode().strip().splitlines()
+
+
+def get_journalctl_service_pid(service_name: str):
+    command = f"systemctl show --property MainPID --value {service_name}"
+    try:
+        result = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output = result.stdout
+    except subprocess.CalledProcessError as e:
+        logger.error(e)
+        output = e.stdout
+    return int(output.decode().strip())
+
+
+def get_system_process_by_pid(pid: int):
+    command = f"ps -p {pid} -fww"
+    try:
+        result = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output = result.stdout
+    except subprocess.CalledProcessError as e:
+        logger.error(e)
+        output = e.stdout
+    return output.decode().strip().splitlines()
+
+
 class BaseInfoCollector:
     name = None
 
@@ -278,6 +322,31 @@ class ECRComponentsInfoCollector(BaseInfoCollector):
         if system_delta > 0.0:
             cpu_percent = cpu_delta / system_delta * 100.0 * cpu_count
         return cpu_percent
+
+
+class SSHTunnelsInfoCollector(BaseInfoCollector):
+    name = "ssh_tunnels"
+
+    def __call__(self):
+        result = {"status": "OK"}
+        statuses = []
+        services = ["lucidum-jumpbox-primary", "lucidum-jumpbox-secondary"]
+        for service in services:
+            pid = get_journalctl_service_pid(service)
+            status = get_systemctl_service_status(service)
+            service_status = {
+                "status": status,
+                "logs": get_journalctl_service_logs(service),
+                "process": get_system_process_by_pid(pid),
+            }
+            statuses.append(status)
+            result[service] = service_status
+
+        if all(status == "inactive" for status in statuses):
+            result["status"] = "FAILED"
+            result["message"] = "SSH tunnels are inactive"
+
+        return result
 
 
 def _build_health_info_obj(collector, result: dict = None):

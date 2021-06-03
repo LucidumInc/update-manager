@@ -16,6 +16,7 @@ from pydantic import BaseModel, validator
 from config_handler import get_lucidum_dir
 from exceptions import AppError
 from healthcheck_handler import get_health_information
+from ssh_tunnels_handler import enable_jumpbox_tunnels, disable_jumpbox_tunnels
 
 AIRFLOW_DOCKER_FILENAME = "airflow_docker.py"
 
@@ -70,6 +71,12 @@ class PostAWSModel(BaseModel):
 
     _validate_access_key = validator("aws_access_key", allow_reuse=True)(check_value_not_empty)
     _validate_secret_key = validator("aws_secret_key", allow_reuse=True)(check_value_not_empty)
+
+
+class SSHTunnelsManagementModel(BaseModel):
+    state: str
+    customer_name: Optional[str] = None
+    customer_number: Optional[int] = None
 
 
 @api_router.post("/airflow", tags=["airflow"])
@@ -131,6 +138,27 @@ def update_aws_settings(config: PostAWSModel) -> dict:
         "aws_secret_key": config.aws_secret_key,
     }
     write_settings("settings.toml", {"global": global_config})
+
+    return {
+        "status": "OK",
+        "message": "success",
+    }
+
+
+@api_router.post("/ssh-tunnels", tags=["ssh_tunnels"])
+def manage_ssh_tunnels(config: SSHTunnelsManagementModel):
+    if config.state == "enable":
+        if not config.customer_name:
+            raise HTTPException(status_code=400, detail="Field 'customer_name' is required")
+        if not config.customer_number:
+            raise HTTPException(status_code=400, detail="Field 'customer_number' is required")
+        jumpbox_primary_content, jumpbox_secondary_content = enable_jumpbox_tunnels(
+            config.customer_name, config.customer_number
+        )
+        logger.debug("lucidum-jumpbox-primary service:\n{}", jumpbox_primary_content)
+        logger.debug("lucidum-jumpbox-secondary service:\n{}", jumpbox_secondary_content)
+    else:
+        disable_jumpbox_tunnels()
 
     return {
         "status": "OK",

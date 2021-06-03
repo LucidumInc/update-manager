@@ -14,7 +14,7 @@ def restart_systemctl_service(service_name: str, super_user: bool = False):
         subprocess.run(command.split(), check=True)
     except Exception as e:
         logger.exception("Error during restart of {} service: {}", service_name, e)
-        raise AppError(str(e))
+        raise AppError(str(e)) from e
 
 
 def reload_systemctl_daemon(super_user: bool = False):
@@ -23,7 +23,7 @@ def reload_systemctl_daemon(super_user: bool = False):
         subprocess.run(command.split(), check=True)
     except Exception as e:
         logger.exception("Error during daemon reload: {}", e)
-        raise AppError(str(e))
+        raise AppError(str(e)) from e
 
 
 def stop_systemctl_service(service_name: str, super_user: bool = False):
@@ -32,7 +32,7 @@ def stop_systemctl_service(service_name: str, super_user: bool = False):
         subprocess.run(command.split(), check=True)
     except Exception as e:
         logger.exception("Error during stop of {} service: {}", service_name, e)
-        raise AppError(str(e))
+        raise AppError(str(e)) from e
 
 
 def disable_systemctl_service(service_name: str, super_user: bool = False):
@@ -41,7 +41,7 @@ def disable_systemctl_service(service_name: str, super_user: bool = False):
         subprocess.run(command.split(), check=True)
     except Exception as e:
         logger.exception("Error during disable of {} service: {}", service_name, e)
-        raise AppError(str(e))
+        raise AppError(str(e)) from e
 
 
 class FileEditor:

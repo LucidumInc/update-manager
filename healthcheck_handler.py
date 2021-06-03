@@ -129,26 +129,46 @@ def check_cron_health() -> dict:
 
 def get_systemctl_service_status(service_name: str, super_user: bool = False):
     command = f"{'sudo ' if super_user else ''}systemctl is-active {service_name}"
-    result = subprocess.run(command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    return result.stdout.decode().strip()
+    try:
+        result = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output = result.stdout
+    except subprocess.CalledProcessError as e:
+        logger.error(e)
+        output = e.stdout
+    return output.decode().strip()
 
 
 def get_journalctl_service_logs(service_name: str):
     command = f"journalctl -u {service_name} -n 50"
-    result = subprocess.run(command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    return result.stdout.decode().strip().splitlines()
+    try:
+        result = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output = result.stdout
+    except subprocess.CalledProcessError as e:
+        logger.error(e)
+        output = e.stdout
+    return output.decode().strip().splitlines()
 
 
 def get_journalctl_service_pid(service_name: str):
     command = f"systemctl show --property MainPID --value {service_name}"
-    result = subprocess.run(command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    return int(result.stdout.decode().strip())
+    try:
+        result = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output = result.stdout
+    except subprocess.CalledProcessError as e:
+        logger.error(e)
+        output = e.stdout
+    return int(output.decode().strip())
 
 
 def get_system_process_by_pid(pid: int):
     command = f"ps -p {pid} -fww"
-    result = subprocess.run(command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    return result.stdout.decode().strip().splitlines()
+    try:
+        result = subprocess.run(command.split(), check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output = result.stdout
+    except subprocess.CalledProcessError as e:
+        logger.error(e)
+        output = e.stdout
+    return output.decode().strip().splitlines()
 
 
 class BaseInfoCollector:

@@ -1,7 +1,4 @@
-
-//TODO:get data from api
-// http://192.168.1.131
-const url = "/api"
+const url = ""
 // $.ajax({
 //   type: "GET",
 //   url: `${url}/update-manager/api/healthcheck`,

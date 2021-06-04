@@ -1,39 +1,17 @@
+
+
 const url = ""
-// $.ajax({
-//   type: "GET",
-//   url: `${url}/update-manager/api/healthcheck`,
-//   dataType: "json",
-//   data: {},
-//   success: function (val) {
-//     const aws_data = val && val.aws || {};
-//     const reverse_ssh_data = val && val.reverse_ssh || {};
-//     const airflow_data = val && val.airflow || {};
-//     const server_data = val && val.system || {};
-//     const ui_data = val && val.ui || {};
-//     const docker_data = val && val.docker || {};
-//     generate_ecr_access_card(aws_data)
-//     generate_reverse_ssh_card(reverse_ssh_data)
-//     generate_airflow_card(airflow_data)
-//     generate_server_card(server_data)
-//     generate_ui_card(ui_data)
-//     generate_docker_card(docker_data)
-//   },
-// });
 
-// $(function () {
-//   console.log('load111')
-//   //console.log($('#aws_card_status_success'))
-//   $('#aws_card_status_success').tooltip({
-//     content:'test'
-//   })
-// })
+const hostname=window.location.hostname;
 
+//  init ui
 update_ecr_access_card();
 update_airflow_card();
 update_server_card();
 update_ui_card();
 update_docker_card();
 update_cron_card();
+
 
 
 function update_ecr_access_card() {
@@ -119,7 +97,6 @@ function update_cron_card() {
 
 
 function generate_ecr_access_card(val) {
-  // ECR Access card
   aws_data = { ...val }
   const ecr_access_title_content = '<h2>ECR Access</h2>'
 
@@ -234,7 +211,7 @@ function generate_airflow_card(val) {
       '<span style="margin-left: 1em;">not setup</span>' +
       '</div>'
   }
-  const airflow_list_content = '<div class=" card_content_list "><p><a href="http://192.168.1.213:9080" style="color: aliceblue;">open airflow in new tab</a></p></div>'
+  const airflow_list_content = `<div class=" card_content_list "><p><a href="http://${hostname}:9080" style="color: aliceblue;">open airflow in new tab</a></p></div>`
   $('#airflow_card_content').append(airflow_title_content, airflow_status_content, airflow_list_content);
 }
 
@@ -289,8 +266,8 @@ function generate_ui_card(val) {
       '<span style="margin-left: 1em;">Failed</span>' +
       '</div>'
   }
-  // http://localhost:8000/#/CMDB/dashboard/home
-  const UI_list_content = '<div class=" card_content_list "><p><a href="http://localhost:8000/#/CMDB" style="color: aliceblue;">open UI in new tab</a></p></div>'
+
+  const UI_list_content = `<div class=" card_content_list "><p><a href="https://${hostname}/CMDB" style="color: aliceblue;">open UI in new tab</a></p></div>`
   $('#ui_cad_content').append(UI_title_content, UI_status_content, UI_list_content);
 }
 
@@ -356,14 +333,6 @@ function settingClick(title, settings) {
     settingsInput = settingsInput + `<input class='settings-input' type="text" placeholder=${item} name=${item} />`
   })
   document.getElementById('modal_main_body').innerHTML = '<div class="modal-main-content">' + settingsInput + '</div>'
-  // $(function () {
-  //   $('#setting_test_button').on('click', function (e) {
-  //     if (!e.isPropagationStopped()) {
-  //       handleTest(key);
-  //     }
-  //     e.stopPropagation()
-  //   });
-  // })
   $(function () {
     $('#setting_save_button').on('click', function (e) {
       if (!e.isPropagationStopped()) {
@@ -393,25 +362,6 @@ function detailModalClick(val){
 function closeDetailModal() {
   $('#myDetailModal').modal('hide')
 }
-
-
-// function handleTest(val) {
-//   const params = {};
-//   const inputs = document.getElementsByClassName('settings-input');
-//   for (i = 0; i < inputs.length; i++) {
-//     params[inputs[i].name] = inputs[i].value;
-//   }
-//   $.ajax({
-//     type: "POST",
-//     url: `${url}/update-manager/api/${val}`,
-//     dataType: "json",
-//     data: JSON.stringify(params),
-//     success: function (respoense) {
-//       // TODO : update ui
-//     },
-//   });
-
-// }
 
 function handleSave(val) {
   const params = {};

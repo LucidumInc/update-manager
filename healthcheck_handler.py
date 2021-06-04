@@ -14,7 +14,7 @@ from loguru import logger
 from psutil._common import bytes2human
 
 from config_handler import get_aws_config, get_ecr_client
-from docker_service import list_docker_containers, get_container_stats
+from docker_service import list_docker_containers
 from exceptions import AppError
 
 
@@ -289,16 +289,12 @@ class ECRComponentsInfoCollector(BaseInfoCollector):
         containers = []
         try:
             for container in list_docker_containers():
-                stats = get_container_stats(container.id, stream=False)
-                cpu_percent = self._calculate_cpu_usage_percentage(stats["cpu_stats"], stats["precpu_stats"])
                 started_at = dateutil_parser.isoparse(container.attrs["State"]["StartedAt"])
                 diff = relativedelta.relativedelta(datetime.now(tz=timezone.utc), started_at)
                 containers.append({
                     "name": container.name,
                     "image": container.image.tags[0] if container.image.tags else "",
                     "container_id": container.short_id,
-                    "cpu": f"{cpu_percent:.2f}%",
-                    "memory": bytes2human(stats["memory_stats"]["usage"]),
                     "pid": container.attrs["State"]["Pid"],
                     "status": f"Up {diff.hours} hours"
                 })
@@ -313,15 +309,6 @@ class ECRComponentsInfoCollector(BaseInfoCollector):
             result["message"] = str(e)
 
         return result
-
-    def _calculate_cpu_usage_percentage(self, cpu_stats, precpu_stats):
-        cpu_count = len(cpu_stats["cpu_usage"]["percpu_usage"])
-        cpu_percent = 0.0
-        cpu_delta = float(cpu_stats["cpu_usage"]["total_usage"]) - float(precpu_stats["cpu_usage"]["total_usage"])
-        system_delta = float(cpu_stats["system_cpu_usage"]) - float(precpu_stats["system_cpu_usage"])
-        if system_delta > 0.0:
-            cpu_percent = cpu_delta / system_delta * 100.0 * cpu_count
-        return cpu_percent
 
 
 class SSHTunnelsInfoCollector(BaseInfoCollector):

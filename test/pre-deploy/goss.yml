@@ -10,8 +10,6 @@ package:
 {{if eq .Env.USER "ubuntu"}}
   python3:
     installed: true
-  virtualenv:
-    installed: true
   python3-pip:
     installed: true
   python3-venv:

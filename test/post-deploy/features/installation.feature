@@ -1,4 +1,4 @@
-Feature: lucidum directory testing
+Feature: lucidum installation directory testing
 
   Scenario: examine lucidum directory ownership
      Given we have a lucidum installation

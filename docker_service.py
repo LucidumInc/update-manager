@@ -8,7 +8,7 @@ from docker.models.images import Image
 from io import BytesIO
 from loguru import logger
 
-from config_handler import get_ecr_client, get_docker_client, get_aws_config
+from config_handler import get_ecr_client, get_docker_client, get_aws_config, get_ecr_pw
 
 ECR_REGISTRY_PATTERN = r"\d{12}\.dkr\.ecr\.[a-z0-9-]+\.amazonaws\.com/.+"
 
@@ -19,12 +19,20 @@ def get_docker_image(name):
 
 
 def _pull_docker_image_from_ecr(repository: str, tag: str = None):
+    # use access_key and secret_key to authenticate first
     access_key, secret_key = get_aws_config()
-    ecr_client = get_ecr_client(access_key, secret_key)
-    docker_client = get_docker_client()
-    auth_config = {"username": ecr_client.auth_config["username"], "password": ecr_client.auth_config["password"]}
-    docker_client.images.pull(repository, tag=tag, auth_config=auth_config)
-
+    if access_key and secret_key:
+        ecr_client = get_ecr_client(access_key, secret_key)
+        docker_client = get_docker_client()
+        auth_config = {"username": ecr_client.auth_config["username"], "password": ecr_client.auth_config["password"]}
+        docker_client.images.pull(repository, tag=tag, auth_config=auth_config)
+    # use ecr token to authenticate
+    ecr_pw = get_ecr_pw()
+    if ecr_pw:
+        auth_config = {"username": 'AWS', "password": ecr_pw}
+        docker_client = get_docker_client()
+        docker_client.images.pull(repository, tag=tag, auth_config=auth_config)
+        return
 
 def _pull_docker_image_from_docker_hub(repository: str, tag: str = None):
     docker_client = get_docker_client()

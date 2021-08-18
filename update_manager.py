@@ -1,9 +1,10 @@
 import click
+import json
 from loguru import logger
 
-from config_handler import get_images_from_ecr, get_local_images
+from config_handler import get_images_from_ecr, get_local_images, get_images
 from history_handler import history_command, get_install_ecr_entries, get_history_command_choices
-from install_handler import install_ecr, get_components, remove_components, list_components
+from install_handler import install_ecr, get_components, remove_components, list_components, install_image_from_ecr
 logger.add("logs/job_{time}.log", rotation="1 day", retention="30 days", diagnose=True)
 
 @click.group()
@@ -20,19 +21,18 @@ def install(archive: str) -> None:
     install_archive(archive)
 
 @cli.command()
-@click.option('--components', '-c', required=True, multiple=True, type=click.Choice(get_components()), help="ecr component list")
+@click.option('--components', '-c', required=True, multiple=True, help="isntall docker images from ecr")
 @click.option('--copy-default', '-d', default=False, is_flag=True, help='copy default files from docker to host')
 @click.option('--restart', '-r', is_flag=True, help='restart web container')
 def installecr(components, copy_default, restart) -> None:
-    logger.info(f"ecr components: {components}")
-    install_ecr(components, copy_default, restart)
+    logger.info(f"ecr components: {components}, copy default: {copy_default}, restart: {restart}")
+    images = get_images(components)
+    logger.info(json.dumps(images, indent=2))
+    install_image_from_ecr(images, copy_default, restart)
 
 
 @cli.command()
-@click.option(
-    '--components', '-c', multiple=True,
-    type=click.Choice(get_components(get_images=get_images_from_ecr)), help="ecr component list"
-)
+@click.option('--components', '-c', multiple=True, help="ecr component list")
 @click.option('--copy-default', '-d', default=False, is_flag=True, help='copy default files from docker to host')
 @click.option('--restart', '-r', default=False, is_flag=True, help='restart web container')
 @click.option('--list', '-l', 'list_', is_flag=True, help='list available components')

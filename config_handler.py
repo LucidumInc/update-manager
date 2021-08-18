@@ -126,8 +126,8 @@ def get_images(components):
             'version': component.split(':')[-1],
             'image': f'{ecr_base}/{component}'
         }
-        image_data['hostPath'] = get_image_path_mapping(lucidum_base, image_data['name'], image_data['version'])
-        images.append(image_data)
+        image_path = get_image_path_mapping(lucidum_base, image_data['name'], image_data['version'])
+        images.append({**image_data, **image_path})
     return images
 
 def get_ecr_images():

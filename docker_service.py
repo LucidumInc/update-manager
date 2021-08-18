@@ -21,11 +21,10 @@ def get_docker_image(name):
 def _pull_docker_image_from_ecr(repository: str, tag: str = None):
     # use access_key and secret_key to authenticate first
     access_key, secret_key = get_aws_config()
-    if access_key and secret_key:
-        ecr_client = get_ecr_client(access_key, secret_key)
-        docker_client = get_docker_client()
-        auth_config = {"username": ecr_client.auth_config["username"], "password": ecr_client.auth_config["password"]}
-        docker_client.images.pull(repository, tag=tag, auth_config=auth_config)
+    ecr_client = get_ecr_client(access_key, secret_key)
+    docker_client = get_docker_client()
+    auth_config = {"username": ecr_client.auth_config["username"], "password": ecr_client.auth_config["password"]}
+    docker_client.images.pull(repository, tag=tag, auth_config=auth_config)
     # use ecr token to authenticate
     ecr_pw = get_ecr_pw()
     if ecr_pw:

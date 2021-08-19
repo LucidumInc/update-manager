@@ -65,17 +65,17 @@ Options:
 > cp resources/docker-compose_file ../docker-compose.yml\
 > cp resources/env_file ../.env\
 > mkdir -p ../mongo/db\
-> chmod -R 777 ../mongo\
+> chmod -R 770 ../mongo\
 > mkdir -p ../mysql/config\
 > mkdir -p ../mysql/db\
-> chmod -R 777 ../mysql\
+> chmod -R 770 ../mysql\
 > mkdir -p ../web/app/hostdata\
 > mkdir -p ../web/app/logs\
-> chmod -R 777 ../web
+> chmod -R 770 ../web
 
 > sudo mkdir -p /usr/lucidum_backup\
 > sudo chown -R demo:demo /usr/lucidum_backup\
-> sudo chmod -R 777 /usr/lucidum_backup
+> sudo chmod -R 770 /usr/lucidum_backup
 
 ## Run update-manager api with gunicorn
 ```shell

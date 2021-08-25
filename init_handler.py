@@ -42,7 +42,7 @@ def create_mongo_directory(base_dir):
     mongo_dir = os.path.join(base_dir, "mongo")
     created = create_directory(os.path.join(mongo_dir, "db"))
     if created:
-        change_permissions_recursive(mongo_dir, 0o770)
+        change_permissions_recursive(mongo_dir, 0o777)
     return mongo_dir
 
 
@@ -54,7 +54,7 @@ def create_mysql_directory(base_dir):
     create_directory(config_dir)
     copy_file(os.path.join("resources", "mysql_my_custom_cnf"), os.path.join(config_dir, "my_custom.cnf"))
     if created:
-        change_permissions_recursive(mysql_dir, 0o770)
+        change_permissions_recursive(mysql_dir, 0o777)
     return mysql_dir
 
 
@@ -73,7 +73,7 @@ def create_web_directory(base_dir):
     copy_file(os.path.join("resources", "web.xml"), os.path.join(conf_dir, "web.xml"))
     copy_file(os.path.join("resources", "index.jsp"), os.path.join(app_dir, "index.jsp"))
     if created:
-        change_permissions_recursive(web_dir, 0o770)
+        change_permissions_recursive(web_dir, 0o777)
     return web_dir
 
 

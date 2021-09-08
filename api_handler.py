@@ -2,7 +2,11 @@ import os
 import sys
 import logging
 import importlib
+import requests
 from typing import Optional
+from pymongo import MongoClient
+from urllib.parse import quote_plus
+
 
 import uvicorn
 from fastapi import FastAPI, APIRouter, HTTPException, Request
@@ -57,6 +61,12 @@ def check_value_not_empty(v: str) -> Optional[str]:
     if v is not None and len(v) == 0:
         raise ValueError("must not be empty")
     return v
+
+
+class EcrModel(BaseModel):
+    image: str
+    copy_default: bool
+    restart_dockers: bool
 
 
 class AirflowModel(BaseModel):
@@ -206,6 +216,63 @@ def create_app() -> FastAPI:
 
 app = create_app()
 
+class MongoDBClient:
+    _mongo_db = "test_database"
+    _mongo_collection = "license_record"
+
+    def __init__(self) -> None:
+        self._client = None
+
+    @property
+    def client(self, mongo_db=_mongo_db):
+        if self._client is None:
+            uri_pattern = "mongodb://{user}:{password}@{host}/?authSource={db}"
+
+            mongo_host="172.16.200.125:27017"
+            mongo_user="lucidum"
+            mongo_pwd="@wesome&business!"
+            mongo_port=27017
+            uri = uri_pattern.format(
+                user=quote_plus(mongo_user),
+                password=quote_plus(mongo_pwd),
+                host=mongo_host,
+                db=mongo_db
+            )
+            self._client = MongoClient(uri)
+        return self._client
+
+    def get_all_license_records(self):
+        try:
+            collection = self.client[self._mongo_db][self._mongo_collection]
+            return list(self.client[self._mongo_db][self._mongo_collection].find({}))
+        except Exception as e:
+            print(f"failed, {e}")
+            return []
+    
+    def get_system_settings(self):
+        try:
+            collection = self.client[self._mongo_db]["system_settings"]
+            return collection.find_one({})
+        except:
+            return {}
+    
+    def insert_license_record(self, license_record):
+        self.client[self._mongo_db][self._mongo_collection].insert_one(license_record)
+
+
+@api_router.post("/ecr")
+def update_ecr_token(param: EcrModel):
+    system_settings = _db_client.get_system_settings()
+    customer_name = system_settings["customer_name"]
+    public_key = system_settings["public_key"]
+
+    token = requests.post(f"http://127.0.0.1:5500/ecr/token/{customer_name}")
+    
+
+
+_db_client = MongoDBClient()
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0")
+    # uvicorn.run(app, host="0.0.0.0")
+    print(_db_client.get_system_settings()["company_name"])
+

@@ -6,6 +6,7 @@ import requests
 from typing import Optional
 from pymongo import MongoClient
 from urllib.parse import quote_plus
+from dynaconf import loaders
 
 
 import uvicorn
@@ -21,6 +22,7 @@ from config_handler import get_lucidum_dir
 from exceptions import AppError
 from healthcheck_handler import get_health_information
 from ssh_tunnels_handler import enable_jumpbox_tunnels, disable_jumpbox_tunnels
+import license_handler
 
 AIRFLOW_DOCKER_FILENAME = "airflow_docker.py"
 
@@ -214,8 +216,6 @@ def create_app() -> FastAPI:
     return app_
 
 
-app = create_app()
-
 class MongoDBClient:
     _mongo_db = "test_database"
     _mongo_collection = "license_record"
@@ -259,20 +259,20 @@ class MongoDBClient:
     def insert_license_record(self, license_record):
         self.client[self._mongo_db][self._mongo_collection].insert_one(license_record)
 
-
-@api_router.post("/ecr")
+_db_client = MongoDBClient()
+@api_router.post("/ecr", tags=["setup"])
 def update_ecr_token(param: EcrModel):
     system_settings = _db_client.get_system_settings()
-    customer_name = system_settings["customer_name"]
-    public_key = system_settings["public_key"]
-
-    token = requests.post(f"http://127.0.0.1:5500/ecr/token/{customer_name}")
+    customer_name = system_settings["company_name"]
+    public_key = system_settings["public_key"] 
     
+    token = requests.get(f"http://127.0.0.1:5500/ecr/token/{customer_name}")
+    _, public_key = license_handler.reformat_keys(pub_key=public_key)
+    token_dict = {"global": {"ecr_token": license_handler.decrypt(token.json()["ecr_token"], public_key)}}
+    loaders.toml_loader.write("settings.toml", token_dict, merge=True)
 
 
-_db_client = MongoDBClient()
+app = create_app()
 
 if __name__ == "__main__":
-    # uvicorn.run(app, host="0.0.0.0")
-    print(_db_client.get_system_settings()["company_name"])
-
+    uvicorn.run(app, host="0.0.0.0")

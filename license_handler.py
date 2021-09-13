@@ -3,7 +3,7 @@ pip install pycrypto pycryptodome pycryptodomex
 '''
 
 def reformat_keys(pri_key=None, pub_key=None):
-    restore_key = lambda key : ''.join([key[i:min(i+64, len(key))] + '\n' for i in range(0, len(key), 64)])
+    restore_key = lambda key: ''.join([key[i:min(i+64, len(key))] + '\n' for i in range(0, len(key), 64)])
     if pri_key != None:
         pri_key = "-----BEGIN RSA PRIVATE KEY-----\n" + restore_key(pri_key) + "-----END RSA PRIVATE KEY-----"
     if pub_key != None:

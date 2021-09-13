@@ -18,7 +18,7 @@ from jinja2 import Environment, BaseLoader
 from loguru import logger
 from pydantic import BaseModel, validator
 
-from config_handler import get_lucidum_dir
+from config_handler import get_lucidum_dir, get_mongo_config
 from exceptions import AppError
 from healthcheck_handler import get_health_information
 from ssh_tunnels_handler import enable_jumpbox_tunnels, disable_jumpbox_tunnels
@@ -218,51 +218,40 @@ def create_app() -> FastAPI:
 
 class MongoDBClient:
     _mongo_db = "test_database"
-    _mongo_collection = "license_record"
+    _mongo_collection = "system_settings"
 
     def __init__(self) -> None:
         self._client = None
 
     @property
-    def client(self, mongo_db=_mongo_db):
+    def client(self):
         if self._client is None:
-            uri_pattern = "mongodb://{user}:{password}@{host}/?authSource={db}"
+            uri_pattern = "mongodb://{user}:{password}@{host}:{port}/?authSource={db}"
 
-            mongo_host="172.16.200.125:27017"
-            mongo_user="lucidum"
-            mongo_pwd="@wesome&business!"
-            mongo_port=27017
-            uri = uri_pattern.format(
-                user=quote_plus(mongo_user),
-                password=quote_plus(mongo_pwd),
-                host=mongo_host,
-                db=mongo_db
-            )
-            self._client = MongoClient(uri)
+            configs = get_mongo_config()
+            self._client = MongoClient(uri_pattern.format(
+                user=quote_plus(configs["mongo_user"]),
+                password=quote_plus(configs["mongo_pwd"]),
+                host=configs["mongo_host"],
+                port=configs["mongo_port"],
+                db=configs["mongo_db"]
+            ))
         return self._client
-
-    def get_all_license_records(self):
+    
+    def get_first_document(self):
         try:
             collection = self.client[self._mongo_db][self._mongo_collection]
-            return list(self.client[self._mongo_db][self._mongo_collection].find({}))
-        except Exception as e:
-            print(f"failed, {e}")
-            return []
-    
-    def get_system_settings(self):
-        try:
-            collection = self.client[self._mongo_db]["system_settings"]
             return collection.find_one({})
-        except:
+        except Exception as e:
+            print(e)
             return {}
-    
-    def insert_license_record(self, license_record):
-        self.client[self._mongo_db][self._mongo_collection].insert_one(license_record)
+
 
 _db_client = MongoDBClient()
-@api_router.post("/ecr", tags=["setup"])
+
+@api_router.post("/ecr")
 def update_ecr_token(param: EcrModel):
-    system_settings = _db_client.get_system_settings()
+    system_settings = _db_client.get_first_document()
     customer_name = system_settings["company_name"]
     public_key = system_settings["public_key"] 
     

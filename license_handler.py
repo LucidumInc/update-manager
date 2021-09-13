@@ -11,7 +11,7 @@ def reformat_keys(pri_key=None, pub_key=None):
     return pri_key, pub_key
 
 
-def decrypt(license, pub_key):
+def decrypt(license_content, pub_key):
     import base64
     from M2Crypto import BIO, RSA
 
@@ -19,12 +19,12 @@ def decrypt(license, pub_key):
     pub_bio = BIO.MemoryBuffer(pub_key.encode('utf-8'))  # Public key string
     pub_rsa = RSA.load_pub_key_bio(pub_bio)  # Load public key
 
-    cipher = base64.b64decode(license.split(':')[0])
+    cipher = base64.b64decode(license_content.split(':')[0])
     keyByteSize = 2048 / 8
 
     plain = b''
     offset = 0
-    while (offset < len(cipher)):
+    while offset < len(cipher):
         inputLen = len(cipher) - offset
         if inputLen > keyByteSize:
             inputLen = keyByteSize

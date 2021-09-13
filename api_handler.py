@@ -237,7 +237,7 @@ class MongoDBClient:
                 db=configs["mongo_db"]
             ))
         return self._client
-    
+
     def get_first_document(self):
         try:
             collection = self.client[self._mongo_db][self._mongo_collection]
@@ -253,8 +253,8 @@ _db_client = MongoDBClient()
 def update_ecr_token(param: EcrModel):
     system_settings = _db_client.get_first_document()
     customer_name = system_settings["company_name"]
-    public_key = system_settings["public_key"] 
-    
+    public_key = system_settings["public_key"]
+
     token = requests.get(f"http://127.0.0.1:5500/ecr/token/{customer_name}")
     _, public_key = license_handler.reformat_keys(pub_key=public_key)
     token_dict = {"global": {"ecr_token": license_handler.decrypt(token.json()["ecr_token"], public_key)}}

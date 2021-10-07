@@ -26,6 +26,7 @@ def _pull_docker_image_from_ecr(repository: str, tag: str = None):
         docker_client = get_docker_client()
         auth_config = {"username": ecr_client.auth_config["username"], "password": ecr_client.auth_config["password"]}
         docker_client.images.pull(repository, tag=tag, auth_config=auth_config)
+        return
     except Exception as e:
         logger.warning(e)
     # use ecr token to authenticate

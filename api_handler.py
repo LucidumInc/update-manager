@@ -1,3 +1,7 @@
+import json
+from datetime import datetime, timezone
+
+import base64
 import os
 import sys
 import logging
@@ -18,7 +22,7 @@ from jinja2 import Environment, BaseLoader
 from loguru import logger
 from pydantic import BaseModel, validator
 
-from config_handler import get_lucidum_dir, get_mongo_config
+from config_handler import get_lucidum_dir, get_mongo_config, get_ecr_token
 from exceptions import AppError
 from healthcheck_handler import get_health_information
 from ssh_tunnels_handler import enable_jumpbox_tunnels, disable_jumpbox_tunnels
@@ -254,6 +258,14 @@ def update_ecr_token(param: EcrModel):
     system_settings = _db_client.get_first_document()
     customer_name = system_settings["company_name"]
     public_key = system_settings["public_key"]
+
+    ecr_token = get_ecr_token()
+    if ecr_token:
+        ecr_token_decoded = base64.b64decode(ecr_token).decode()
+        data = json.loads(base64.b64decode(ecr_token_decoded.rsplit(":", 1)[-1]).decode())
+        current_timestamp = int(datetime.now(tz=timezone.utc).timestamp())
+        if current_timestamp <= data["expiration"]:
+            return
 
     token = requests.get(f"http://127.0.0.1:5500/ecr/token/{customer_name}")
     _, public_key = license_handler.reformat_keys(pub_key=public_key)

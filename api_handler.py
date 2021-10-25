@@ -1,8 +1,10 @@
+import json
+
 import os
 import sys
 import logging
 import importlib
-from typing import Optional
+from typing import Optional, List
 
 import uvicorn
 from fastapi import FastAPI, APIRouter, HTTPException, Request
@@ -13,9 +15,10 @@ from jinja2 import Environment, BaseLoader
 from loguru import logger
 from pydantic import BaseModel, validator
 
-from config_handler import get_lucidum_dir
+from config_handler import get_lucidum_dir, get_images
 from exceptions import AppError
 from healthcheck_handler import get_health_information
+from install_handler import install_image_from_ecr
 from ssh_tunnels_handler import enable_jumpbox_tunnels, disable_jumpbox_tunnels
 
 AIRFLOW_DOCKER_FILENAME = "airflow_docker.py"
@@ -77,6 +80,12 @@ class SSHTunnelsManagementModel(BaseModel):
     state: str
     customer_name: Optional[str] = None
     customer_number: Optional[int] = None
+
+
+class InstallECRModel(BaseModel):
+    components: List[dict]
+    restart: bool
+    copy_default: Optional[bool] = False
 
 
 @api_router.post("/airflow", tags=["airflow"])
@@ -159,6 +168,20 @@ def manage_ssh_tunnels(config: SSHTunnelsManagementModel):
         logger.debug("lucidum-jumpbox-secondary service:\n{}", jumpbox_secondary_content)
     else:
         disable_jumpbox_tunnels()
+
+    return {
+        "status": "OK",
+        "message": "success",
+    }
+
+
+@api_router.post("/installecr", tags=["installecr"])
+def installecr(data: InstallECRModel):
+    components = [f"{component['component']}:{component['version']}" for component in data.components]
+    logger.info(f"ecr components: {components}, copy default: {data.copy_default}, restart: {data.restart}")
+    images = get_images(components)
+    logger.info(json.dumps(images, indent=2))
+    install_image_from_ecr(images, data.copy_default, data.restart)
 
     return {
         "status": "OK",

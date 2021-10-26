@@ -164,7 +164,6 @@ class DockerImagesUpdater:
         self._images_to_remove = []
 
     def _update_image(self, image_data):
-        logger.info(image_data)
         image_tag = f"{image_data['name']}:{image_data['version']}"
         try:
             old_image = get_docker_image(image_tag)
@@ -238,6 +237,10 @@ def install_ecr(components, copy_default, restart, get_images=get_ecr_images):
     )
     update_docker_images()
 
+@logger.catch(onerror=lambda _: sys.exit(1))
+def install_image_from_ecr(images, copy_default, restart):
+    update_docker_images = DockerImagesUpdater(images, copy_default, restart)
+    update_docker_images()
 
 @logger.catch(onerror=lambda _: sys.exit(1))
 def remove_components(components):

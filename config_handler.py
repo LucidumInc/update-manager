@@ -1,3 +1,4 @@
+import base64
 from base64 import urlsafe_b64encode
 from cryptography.fernet import Fernet
 from cryptography.hazmat.backends import default_backend
@@ -124,6 +125,19 @@ def get_docker_client() -> DockerClient:
 def get_ecr_image_list():
     return []
 
+def get_images(components):
+    ecr_base = get_ecr_base()
+    lucidum_base = get_lucidum_dir()
+    images = []
+    for component in components:
+        image_data = {
+            'name': component.split(':')[0],
+            'version': component.split(':')[-1],
+            'image': f'{ecr_base}/{component}'
+        }
+        image_path = get_image_path_mapping(lucidum_base, image_data['name'], image_data['version'])
+        images.append({**image_data, **image_path})
+    return images
 
 def get_ecr_images():
     ecr_base = get_ecr_base()
@@ -194,3 +208,11 @@ def get_local_images():
             image_data.update(get_image_path_mapping(lucidum_dir, data[0], data[1]))
             images.append(image_data)
     return images
+
+def get_ecr_pw():
+    ecr_token = settings.get('ECR_TOKEN', None)
+    if ecr_token:
+        credentials = base64.b64decode(ecr_token).decode().split(":")
+        if len(credentials) > 1:
+            return credentials[1]
+    return None

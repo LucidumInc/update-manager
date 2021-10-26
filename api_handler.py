@@ -81,27 +81,6 @@ class SSHTunnelsManagementModel(BaseModel):
     customer_number: Optional[int] = None
 
 
-@api_router.post("/airflow", tags=["airflow"])
-def generate_airflow_dag_file(airflow: AirflowModel) -> dict:
-    template = Environment(loader=BaseLoader(), extensions=["jinja2.ext.do"]).from_string(airflow.template)
-    content = template.render(**airflow.data)
-    try:
-        compile(content, "airflow", "exec")
-    except SyntaxError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
-    filename = airflow.filename or AIRFLOW_DOCKER_FILENAME
-    airflow_dags_path = os.path.join(get_lucidum_dir(), "airflow", "dags")
-    os.makedirs(airflow_dags_path, exist_ok=True)
-    with open(os.path.join(airflow_dags_path, filename), "w+") as f:
-        f.write(content)
-
-    return {
-        "status": "OK",
-        "message": "success",
-        "file_content": content,
-    }
-
-
 @api_router.get("/airflow", tags=["airflow"])
 def get_airflow_dag_file() -> dict:
     try:
@@ -161,41 +140,6 @@ def write_settings(filename, data):
     loader_name = f"{filename.rpartition('.')[-1]}_loader"
     loader = importlib.import_module(f"dynaconf.loaders.{loader_name}")
     loader.write(filename, data, merge=True)
-
-
-@api_router.post("/aws", tags=["aws"])
-def update_aws_settings(config: PostAWSModel) -> dict:
-    global_config = {
-        "aws_access_key": config.aws_access_key,
-        "aws_secret_key": config.aws_secret_key,
-    }
-    write_settings("settings.toml", {"global": global_config})
-
-    return {
-        "status": "OK",
-        "message": "success",
-    }
-
-
-@api_router.post("/ssh-tunnels", tags=["ssh_tunnels"])
-def manage_ssh_tunnels(config: SSHTunnelsManagementModel):
-    if config.state == "enable":
-        if not config.customer_name:
-            raise HTTPException(status_code=400, detail="Field 'customer_name' is required")
-        if not config.customer_number:
-            raise HTTPException(status_code=400, detail="Field 'customer_number' is required")
-        jumpbox_primary_content, jumpbox_secondary_content = enable_jumpbox_tunnels(
-            config.customer_name, config.customer_number
-        )
-        logger.debug("lucidum-jumpbox-primary service:\n{}", jumpbox_primary_content)
-        logger.debug("lucidum-jumpbox-secondary service:\n{}", jumpbox_secondary_content)
-    else:
-        disable_jumpbox_tunnels()
-
-    return {
-        "status": "OK",
-        "message": "success",
-    }
 
 
 @root_router.get("/setup", response_class=HTMLResponse, tags=["setup"])

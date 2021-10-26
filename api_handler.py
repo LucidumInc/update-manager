@@ -13,10 +13,11 @@ from jinja2 import Environment, BaseLoader
 from loguru import logger
 from pydantic import BaseModel, validator
 
-from config_handler import get_lucidum_dir
+from config_handler import get_lucidum_dir, get_airflow_db_config
 from exceptions import AppError
 from healthcheck_handler import get_health_information
 from ssh_tunnels_handler import enable_jumpbox_tunnels, disable_jumpbox_tunnels
+from sqlalchemy import create_engine
 
 AIRFLOW_DOCKER_FILENAME = "airflow_docker.py"
 
@@ -24,7 +25,8 @@ root_router = APIRouter()
 api_router = APIRouter(prefix="/update-manager/api")
 
 templates = Jinja2Templates(directory="templates")
-
+airflow_db = get_airflow_db_config()
+airflow_db_connection = create_engine(f"postgresql://{airflow_db['user']}:{airflow_db['pwd']}@{airflow_db['host']}:{airflow_db['port']}/{airflow_db['db']}").connect()
 
 class InterceptHandler(logging.Handler):
 
@@ -112,6 +114,36 @@ def get_airflow_dag_file() -> dict:
         "status": "OK",
         "message": "success",
         "file_content": content,
+    }
+
+@api_router.get("/airflow/dags/{dag_id}/dagRuns", tags=["airflow"])
+def get_airflow_dag_runs(dag_id: str = None) -> dict:
+    query = f"""select dag_id, run_id, execution_date, end_date - start_date AS duration
+                  from dag_run
+                 where dag_id = '{dag_id}'
+                 order by start_date desc
+                 limit 10"""
+    records = airflow_db_connection.execute(query).fetchall()
+    results = [dict(row) for row in records]
+    return {
+        "status": "OK",
+        "message": "success",
+        "data": results
+    }
+
+@api_router.get("/airflow/dags/{dag_id}/dagRuns/{execution_date}/tasks", tags=["airflow"])
+def get_airflow_dag_runs(dag_id: str = None, execution_date: str = None) -> dict:
+    query = f"""select task_id, dag_id, execution_date, start_date, end_date, duration, state, try_number, job_id, pid
+                  from task_instance
+                 where dag_id = '{dag_id}'
+                   and execution_date = '{execution_date}'
+                 order by job_id"""
+    records = airflow_db_connection.execute(query).fetchall()
+    results = [dict(row) for row in records]
+    return {
+        "status": "OK",
+        "message": "success",
+        "data": results
     }
 
 

@@ -38,6 +38,41 @@ templates = Jinja2Templates(directory="templates")
 airflow_db = get_airflow_db_config()
 airflow_db_connection = create_engine(f"postgresql://{airflow_db['user']}:{airflow_db['pwd']}@{airflow_db['host']}:{airflow_db['port']}/{airflow_db['db']}").connect()
 
+
+class MongoDBClient:
+    _mongo_db = "test_database"
+    _mongo_collection = "system_settings"
+
+    def __init__(self) -> None:
+        self._client = None
+
+    @property
+    def client(self):
+        if self._client is None:
+            uri_pattern = "mongodb://{user}:{password}@{host}:{port}/?authSource={db}"
+
+            configs = get_mongo_config()
+            self._client = MongoClient(uri_pattern.format(
+                user=quote_plus(configs["mongo_user"]),
+                password=quote_plus(configs["mongo_pwd"]),
+                host=configs["mongo_host"],
+                port=configs["mongo_port"],
+                db=configs["mongo_db"]
+            ))
+        return self._client
+
+    def get_first_document(self):
+        try:
+            collection = self.client[self._mongo_db][self._mongo_collection]
+            return collection.find_one({})
+        except Exception as e:
+            print(e)
+            return {}
+
+
+_db_client = MongoDBClient()
+
+
 class InterceptHandler(logging.Handler):
 
     def emit(self, record: logging.LogRecord) -> None:
@@ -97,9 +132,10 @@ class SSHTunnelsManagementModel(BaseModel):
     customer_number: Optional[int] = None
 
 
-class InstallECRModel(BaseModel):
-    components: List[dict]
-    restart: bool
+class InstallECRComponentModel(BaseModel):
+    component_name: str
+    component_version: str
+    restart: bool = False
     copy_default: Optional[bool] = False
 
 
@@ -164,13 +200,43 @@ def write_settings(filename, data):
     loader.write(filename, data, merge=True)
 
 
+def update_ecr_token_config() -> None:
+    system_settings = _db_client.get_first_document()
+    customer_name = system_settings["company_name"]
+    public_key = system_settings["public_key"]
+
+    ecr_token = get_ecr_token()
+    if ecr_token:
+        ecr_token_decoded = base64.b64decode(ecr_token).decode()
+        data = json.loads(base64.b64decode(ecr_token_decoded.rsplit(":", 1)[-1]).decode())
+        current_timestamp = int(datetime.now(tz=timezone.utc).timestamp())
+        if current_timestamp <= data["expiration"]:
+            return
+
+    token = requests.get(f"http://127.0.0.1:5500/ecr/token/{customer_name}")
+    _, public_key = license_handler.reformat_keys(pub_key=public_key)
+    token_dict = {"global": {"ecr_token": license_handler.decrypt(token.json()["ecr_token"], public_key)}}
+    write_settings("settings.toml", token_dict)
+
+
+@api_router.post("/ecr")
+def update_ecr_token(param: EcrModel):
+    update_ecr_token_config()
+
+    return {
+        "status": "OK",
+        "message": "success",
+    }
+
+
 @api_router.post("/installecr", tags=["installecr"])
-def installecr(data: InstallECRModel):
-    components = [f"{component['component']}:{component['version']}" for component in data.components]
-    logger.info(f"ecr components: {components}, copy default: {data.copy_default}, restart: {data.restart}")
+def installecr(component: InstallECRComponentModel):
+    components = [f"{component.component_name}:{component.component_version}"]
+    logger.info(f"ecr components: {components}, copy default: {component.copy_default}, restart: {component.restart}")
+    update_ecr_token_config()
     images = get_images(components)
     logger.info(json.dumps(images, indent=2))
-    install_image_from_ecr(images, data.copy_default, data.restart)
+    install_image_from_ecr(images, component.copy_default, component.restart)
 
     return {
         "status": "OK",
@@ -214,59 +280,6 @@ def create_app() -> FastAPI:
     setup_startup_event(app_)
     setup_exception_handlers(app_)
     return app_
-
-
-class MongoDBClient:
-    _mongo_db = "test_database"
-    _mongo_collection = "system_settings"
-
-    def __init__(self) -> None:
-        self._client = None
-
-    @property
-    def client(self):
-        if self._client is None:
-            uri_pattern = "mongodb://{user}:{password}@{host}:{port}/?authSource={db}"
-
-            configs = get_mongo_config()
-            self._client = MongoClient(uri_pattern.format(
-                user=quote_plus(configs["mongo_user"]),
-                password=quote_plus(configs["mongo_pwd"]),
-                host=configs["mongo_host"],
-                port=configs["mongo_port"],
-                db=configs["mongo_db"]
-            ))
-        return self._client
-
-    def get_first_document(self):
-        try:
-            collection = self.client[self._mongo_db][self._mongo_collection]
-            return collection.find_one({})
-        except Exception as e:
-            print(e)
-            return {}
-
-
-_db_client = MongoDBClient()
-
-@api_router.post("/ecr")
-def update_ecr_token(param: EcrModel):
-    system_settings = _db_client.get_first_document()
-    customer_name = system_settings["company_name"]
-    public_key = system_settings["public_key"]
-
-    ecr_token = get_ecr_token()
-    if ecr_token:
-        ecr_token_decoded = base64.b64decode(ecr_token).decode()
-        data = json.loads(base64.b64decode(ecr_token_decoded.rsplit(":", 1)[-1]).decode())
-        current_timestamp = int(datetime.now(tz=timezone.utc).timestamp())
-        if current_timestamp <= data["expiration"]:
-            return
-
-    token = requests.get(f"http://127.0.0.1:5500/ecr/token/{customer_name}")
-    _, public_key = license_handler.reformat_keys(pub_key=public_key)
-    token_dict = {"global": {"ecr_token": license_handler.decrypt(token.json()["ecr_token"], public_key)}}
-    loaders.toml_loader.write("settings.toml", token_dict, merge=True)
 
 
 app = create_app()

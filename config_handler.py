@@ -99,6 +99,15 @@ def get_mongo_config():
         "mongo_db": required_field_check('MONGO_CONFIG.MONGO_DB'),
     }
 
+def get_airflow_db_config():
+    return {
+        "host": required_field_check('AIRFLOW_DB_CONFIG.HOST'),
+        "user": required_field_check('AIRFLOW_DB_CONFIG.USER'),
+        "pwd": encrpyt_password(required_field_check('AIRFLOW_DB_CONFIG.PWD')),
+        "port": required_field_check('AIRFLOW_DB_CONFIG.PORT'),
+        "db": required_field_check('AIRFLOW_DB_CONFIG.DB'),
+    }
+
 
 def get_ecr_client(access_key: str = None, secret_key: str = None) -> ECRClient:
     return ECRClient(

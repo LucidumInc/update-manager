@@ -15,11 +15,12 @@ from jinja2 import Environment, BaseLoader
 from loguru import logger
 from pydantic import BaseModel, validator
 
-from config_handler import get_lucidum_dir, get_images
+from config_handler import get_lucidum_dir, get_airflow_db_config, get_images
 from exceptions import AppError
 from healthcheck_handler import get_health_information
 from install_handler import install_image_from_ecr
 from ssh_tunnels_handler import enable_jumpbox_tunnels, disable_jumpbox_tunnels
+from sqlalchemy import create_engine
 
 AIRFLOW_DOCKER_FILENAME = "airflow_docker.py"
 
@@ -27,7 +28,8 @@ root_router = APIRouter()
 api_router = APIRouter(prefix="/update-manager/api")
 
 templates = Jinja2Templates(directory="templates")
-
+airflow_db = get_airflow_db_config()
+airflow_db_connection = create_engine(f"postgresql://{airflow_db['user']}:{airflow_db['pwd']}@{airflow_db['host']}:{airflow_db['port']}/{airflow_db['db']}").connect()
 
 class InterceptHandler(logging.Handler):
 
@@ -88,27 +90,6 @@ class InstallECRModel(BaseModel):
     copy_default: Optional[bool] = False
 
 
-@api_router.post("/airflow", tags=["airflow"])
-def generate_airflow_dag_file(airflow: AirflowModel) -> dict:
-    template = Environment(loader=BaseLoader(), extensions=["jinja2.ext.do"]).from_string(airflow.template)
-    content = template.render(**airflow.data)
-    try:
-        compile(content, "airflow", "exec")
-    except SyntaxError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
-    filename = airflow.filename or AIRFLOW_DOCKER_FILENAME
-    airflow_dags_path = os.path.join(get_lucidum_dir(), "airflow", "dags")
-    os.makedirs(airflow_dags_path, exist_ok=True)
-    with open(os.path.join(airflow_dags_path, filename), "w+") as f:
-        f.write(content)
-
-    return {
-        "status": "OK",
-        "message": "success",
-        "file_content": content,
-    }
-
-
 @api_router.get("/airflow", tags=["airflow"])
 def get_airflow_dag_file() -> dict:
     try:
@@ -121,6 +102,36 @@ def get_airflow_dag_file() -> dict:
         "status": "OK",
         "message": "success",
         "file_content": content,
+    }
+
+@api_router.get("/airflow/dags/{dag_id}/dagRuns", tags=["airflow"])
+def get_airflow_dag_runs(dag_id: str = None) -> dict:
+    query = f"""select dag_id, run_id, execution_date, end_date - start_date AS duration
+                  from dag_run
+                 where dag_id = '{dag_id}'
+                 order by start_date desc
+                 limit 10"""
+    records = airflow_db_connection.execute(query).fetchall()
+    results = [dict(row) for row in records]
+    return {
+        "status": "OK",
+        "message": "success",
+        "data": results
+    }
+
+@api_router.get("/airflow/dags/{dag_id}/dagRuns/{execution_date}/tasks", tags=["airflow"])
+def get_airflow_dag_runs(dag_id: str = None, execution_date: str = None) -> dict:
+    query = f"""select task_id, dag_id, execution_date, start_date, end_date, duration, state, try_number, job_id, pid
+                  from task_instance
+                 where dag_id = '{dag_id}'
+                   and execution_date = '{execution_date}'
+                 order by job_id"""
+    records = airflow_db_connection.execute(query).fetchall()
+    results = [dict(row) for row in records]
+    return {
+        "status": "OK",
+        "message": "success",
+        "data": results
     }
 
 
@@ -138,41 +149,6 @@ def write_settings(filename, data):
     loader_name = f"{filename.rpartition('.')[-1]}_loader"
     loader = importlib.import_module(f"dynaconf.loaders.{loader_name}")
     loader.write(filename, data, merge=True)
-
-
-@api_router.post("/aws", tags=["aws"])
-def update_aws_settings(config: PostAWSModel) -> dict:
-    global_config = {
-        "aws_access_key": config.aws_access_key,
-        "aws_secret_key": config.aws_secret_key,
-    }
-    write_settings("settings.toml", {"global": global_config})
-
-    return {
-        "status": "OK",
-        "message": "success",
-    }
-
-
-@api_router.post("/ssh-tunnels", tags=["ssh_tunnels"])
-def manage_ssh_tunnels(config: SSHTunnelsManagementModel):
-    if config.state == "enable":
-        if not config.customer_name:
-            raise HTTPException(status_code=400, detail="Field 'customer_name' is required")
-        if not config.customer_number:
-            raise HTTPException(status_code=400, detail="Field 'customer_number' is required")
-        jumpbox_primary_content, jumpbox_secondary_content = enable_jumpbox_tunnels(
-            config.customer_name, config.customer_number
-        )
-        logger.debug("lucidum-jumpbox-primary service:\n{}", jumpbox_primary_content)
-        logger.debug("lucidum-jumpbox-secondary service:\n{}", jumpbox_secondary_content)
-    else:
-        disable_jumpbox_tunnels()
-
-    return {
-        "status": "OK",
-        "message": "success",
-    }
 
 
 @api_router.post("/installecr", tags=["installecr"])

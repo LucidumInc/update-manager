@@ -90,6 +90,11 @@ def get_aws_config() -> tuple:
     return settings.get("AWS_ACCESS_KEY"), settings.get("AWS_SECRET_KEY")
 
 
+def get_ecr_token() -> str:
+    settings.reload()
+    return settings.get("ecr_token")
+
+
 def get_mongo_config():
     return {
         "mongo_host": required_field_check('MONGO_CONFIG.MONGO_HOST'),

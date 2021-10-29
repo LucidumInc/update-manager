@@ -1,10 +1,16 @@
 import json
+from datetime import datetime, timezone
 
+import base64
 import os
 import sys
 import logging
 import importlib
+import requests
 from typing import Optional, List
+from pymongo import MongoClient
+from urllib.parse import quote_plus
+from dynaconf import loaders
 
 import uvicorn
 from fastapi import FastAPI, APIRouter, HTTPException, Request
@@ -15,11 +21,12 @@ from jinja2 import Environment, BaseLoader
 from loguru import logger
 from pydantic import BaseModel, validator
 
-from config_handler import get_lucidum_dir, get_airflow_db_config, get_images
+from config_handler import get_lucidum_dir, get_airflow_db_config, get_images, get_mongo_config, get_ecr_token
 from exceptions import AppError
 from healthcheck_handler import get_health_information
 from install_handler import install_image_from_ecr
 from ssh_tunnels_handler import enable_jumpbox_tunnels, disable_jumpbox_tunnels
+import license_handler
 from sqlalchemy import create_engine
 
 AIRFLOW_DOCKER_FILENAME = "airflow_docker.py"
@@ -62,6 +69,12 @@ def check_value_not_empty(v: str) -> Optional[str]:
     if v is not None and len(v) == 0:
         raise ValueError("must not be empty")
     return v
+
+
+class EcrModel(BaseModel):
+    image: str
+    copy_default: bool
+    restart_dockers: bool
 
 
 class AirflowModel(BaseModel):
@@ -203,8 +216,60 @@ def create_app() -> FastAPI:
     return app_
 
 
-app = create_app()
+class MongoDBClient:
+    _mongo_db = "test_database"
+    _mongo_collection = "system_settings"
 
+    def __init__(self) -> None:
+        self._client = None
+
+    @property
+    def client(self):
+        if self._client is None:
+            uri_pattern = "mongodb://{user}:{password}@{host}:{port}/?authSource={db}"
+
+            configs = get_mongo_config()
+            self._client = MongoClient(uri_pattern.format(
+                user=quote_plus(configs["mongo_user"]),
+                password=quote_plus(configs["mongo_pwd"]),
+                host=configs["mongo_host"],
+                port=configs["mongo_port"],
+                db=configs["mongo_db"]
+            ))
+        return self._client
+
+    def get_first_document(self):
+        try:
+            collection = self.client[self._mongo_db][self._mongo_collection]
+            return collection.find_one({})
+        except Exception as e:
+            print(e)
+            return {}
+
+
+_db_client = MongoDBClient()
+
+@api_router.post("/ecr")
+def update_ecr_token(param: EcrModel):
+    system_settings = _db_client.get_first_document()
+    customer_name = system_settings["company_name"]
+    public_key = system_settings["public_key"]
+
+    ecr_token = get_ecr_token()
+    if ecr_token:
+        ecr_token_decoded = base64.b64decode(ecr_token).decode()
+        data = json.loads(base64.b64decode(ecr_token_decoded.rsplit(":", 1)[-1]).decode())
+        current_timestamp = int(datetime.now(tz=timezone.utc).timestamp())
+        if current_timestamp <= data["expiration"]:
+            return
+
+    token = requests.get(f"http://127.0.0.1:5500/ecr/token/{customer_name}")
+    _, public_key = license_handler.reformat_keys(pub_key=public_key)
+    token_dict = {"global": {"ecr_token": license_handler.decrypt(token.json()["ecr_token"], public_key)}}
+    loaders.toml_loader.write("settings.toml", token_dict, merge=True)
+
+
+app = create_app()
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0")

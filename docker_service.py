@@ -1,3 +1,4 @@
+import subprocess
 import time
 
 import os
@@ -128,3 +129,11 @@ def run_docker_container(image, **kwargs):
 def list_docker_images(**kwargs):
     docker_client = get_docker_client()
     return docker_client.images.list(**kwargs)
+
+
+def start_docker_compose(directory: str) -> None:
+    subprocess.run([shutil.which("docker-compose"), "up", "-d"], cwd=directory, check=True)
+
+
+def stop_docker_compose(directory: str) -> None:
+    subprocess.run([shutil.which("docker-compose"), "down"], cwd=directory, check=True)

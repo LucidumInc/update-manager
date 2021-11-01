@@ -22,6 +22,7 @@ from loguru import logger
 from pydantic import BaseModel, validator
 
 from config_handler import get_lucidum_dir, get_airflow_db_config, get_images, get_mongo_config, get_ecr_token
+from docker_service import start_docker_compose, stop_docker_compose
 from exceptions import AppError
 from healthcheck_handler import get_health_information
 from install_handler import install_image_from_ecr
@@ -238,6 +239,26 @@ def installecr(component: InstallECRComponentModel):
     logger.info(json.dumps(images, indent=2))
     install_image_from_ecr(images, component.copy_default, component.restart)
 
+    return {
+        "status": "OK",
+        "message": "success",
+    }
+
+
+@api_router.post("/docker-compose/start", tags=["docker-compose"])
+def start_docker_compose_():
+    lucidum_dir = get_lucidum_dir()
+    start_docker_compose(lucidum_dir)
+    return {
+        "status": "OK",
+        "message": "success",
+    }
+
+
+@api_router.post("/docker-compose/stop", tags=["docker-compose"])
+def stop_docker_compose_():
+    lucidum_dir = get_lucidum_dir()
+    stop_docker_compose(lucidum_dir)
     return {
         "status": "OK",
         "message": "success",

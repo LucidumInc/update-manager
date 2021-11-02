@@ -137,3 +137,15 @@ def start_docker_compose(directory: str) -> None:
 
 def stop_docker_compose(directory: str) -> None:
     subprocess.run([shutil.which("docker-compose"), "down"], cwd=directory, check=True)
+
+
+def list_docker_compose_containers(directory: str) -> str:
+    cp = subprocess.run(
+        [shutil.which("docker-compose"), "ps"],
+        cwd=directory,
+        check=True,
+        universal_newlines=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
+    return cp.stdout

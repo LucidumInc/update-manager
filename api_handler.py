@@ -22,7 +22,7 @@ from loguru import logger
 from pydantic import BaseModel, validator
 
 from config_handler import get_lucidum_dir, get_airflow_db_config, get_images, get_mongo_config, get_ecr_token
-from docker_service import start_docker_compose, stop_docker_compose
+from docker_service import start_docker_compose, stop_docker_compose, list_docker_compose_containers
 from exceptions import AppError
 from healthcheck_handler import get_health_information
 from install_handler import install_image_from_ecr
@@ -170,7 +170,7 @@ def get_airflow_dag_runs(dag_id: str = None) -> dict:
     }
 
 @api_router.get("/airflow/dags/{dag_id}/dagRuns/{execution_date}/tasks", tags=["airflow"])
-def get_airflow_dag_runs(dag_id: str = None, execution_date: str = None) -> dict:
+def get_airflow_dag_runs_tasks(dag_id: str = None, execution_date: str = None) -> dict:
     query = f"""select task_id, dag_id, execution_date, start_date, end_date, duration, state, try_number, job_id, pid
                   from task_instance
                  where dag_id = '{dag_id}'
@@ -249,9 +249,11 @@ def installecr(component: InstallECRComponentModel):
 def start_docker_compose_():
     lucidum_dir = get_lucidum_dir()
     start_docker_compose(lucidum_dir)
+    output = list_docker_compose_containers(lucidum_dir)
     return {
         "status": "OK",
         "message": "success",
+        "data": output
     }
 
 

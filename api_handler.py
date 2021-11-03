@@ -7,17 +7,15 @@ import sys
 import logging
 import importlib
 import requests
-from typing import Optional, List
+from typing import Optional
 from pymongo import MongoClient
 from urllib.parse import quote_plus
-from dynaconf import loaders
 
 import uvicorn
 from fastapi import FastAPI, APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from jinja2 import Environment, BaseLoader
 from loguru import logger
 from pydantic import BaseModel, validator
 
@@ -26,7 +24,6 @@ from docker_service import start_docker_compose, stop_docker_compose, list_docke
 from exceptions import AppError
 from healthcheck_handler import get_health_information
 from install_handler import install_image_from_ecr
-from ssh_tunnels_handler import enable_jumpbox_tunnels, disable_jumpbox_tunnels
 import license_handler
 from sqlalchemy import create_engine
 
@@ -253,7 +250,7 @@ def start_docker_compose_():
     return {
         "status": "OK",
         "message": "success",
-        "data": output
+        "output": output,
     }
 
 
@@ -261,9 +258,11 @@ def start_docker_compose_():
 def stop_docker_compose_():
     lucidum_dir = get_lucidum_dir()
     stop_docker_compose(lucidum_dir)
+    output = list_docker_compose_containers(lucidum_dir)
     return {
         "status": "OK",
         "message": "success",
+        "output": output,
     }
 
 

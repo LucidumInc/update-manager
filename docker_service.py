@@ -139,9 +139,14 @@ def stop_docker_compose(directory: str) -> None:
     subprocess.run([shutil.which("docker-compose"), "down"], cwd=directory, check=True)
 
 
-def list_docker_compose_containers(directory: str) -> str:
+def list_docker_compose_containers(directory: str, services: bool = False, filter_: str = None) -> str:
+    command = [shutil.which("docker-compose"), "ps"]
+    if services:
+        command.append("--services")
+    if filter_ is not None:
+        command += ["--filter", filter_]
     cp = subprocess.run(
-        [shutil.which("docker-compose"), "ps"],
+        command,
         cwd=directory,
         check=True,
         universal_newlines=True,
@@ -149,3 +154,38 @@ def list_docker_compose_containers(directory: str) -> str:
         stderr=subprocess.PIPE
     )
     return cp.stdout
+
+
+def start_docker_compose_service(directory: str, service_name: str) -> None:
+    command = [shutil.which("docker-compose"), "start", service_name]
+    subprocess.run(command, cwd=directory, check=True)
+
+
+def stop_docker_compose_service(directory: str, service_name: str) -> None:
+    command = [shutil.which("docker-compose"), "stop", service_name]
+    subprocess.run(command, cwd=directory, check=True)
+
+
+def restart_docker_compose(directory: str) -> None:
+    subprocess.run([shutil.which("docker-compose"), "restart"], cwd=directory, check=True)
+
+
+def restart_docker_compose_service(directory: str, service_name: str) -> None:
+    command = [shutil.which("docker-compose"), "restart", service_name]
+    subprocess.run(command, cwd=directory, check=True)
+
+
+def get_docker_compose_logs(directory: str, service_name: str = None, tail: int = 100):
+    command = [shutil.which("docker-compose"), "logs", f"--tail={tail}"]
+    if service_name is not None:
+        command.append(service_name)
+    cp = subprocess.run(
+        command,
+        cwd=directory,
+        check=True,
+        universal_newlines=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
+    return cp.stdout
+

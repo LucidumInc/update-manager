@@ -20,7 +20,9 @@ from loguru import logger
 from pydantic import BaseModel, validator
 
 from config_handler import get_lucidum_dir, get_airflow_db_config, get_images, get_mongo_config, get_ecr_token
-from docker_service import start_docker_compose, stop_docker_compose, list_docker_compose_containers
+from docker_service import start_docker_compose, stop_docker_compose, list_docker_compose_containers, \
+    start_docker_compose_service, stop_docker_compose_service, restart_docker_compose, restart_docker_compose_service, \
+    get_docker_compose_logs
 from exceptions import AppError
 from healthcheck_handler import get_health_information
 from install_handler import install_image_from_ecr
@@ -259,6 +261,83 @@ def stop_docker_compose_():
     lucidum_dir = get_lucidum_dir()
     stop_docker_compose(lucidum_dir)
     output = list_docker_compose_containers(lucidum_dir)
+    return {
+        "status": "OK",
+        "message": "success",
+        "output": output,
+    }
+
+
+def handle_start_action(component_name: str = None):
+    lucidum_dir = get_lucidum_dir()
+    if component_name is not None:
+        services = list_docker_compose_containers(lucidum_dir, services=True)
+        running_services = list_docker_compose_containers(lucidum_dir, services=True, filter_="status=running")
+        if component_name not in services.split():
+            raise HTTPException(status_code=404, detail=f"Component not found: {component_name}")
+        if component_name not in running_services.split():
+            start_docker_compose_service(lucidum_dir, component_name)
+    else:
+        start_docker_compose(lucidum_dir)
+    return list_docker_compose_containers(lucidum_dir)
+
+
+def handle_stop_action(component_name: str = None):
+    lucidum_dir = get_lucidum_dir()
+    if component_name is not None:
+        services = list_docker_compose_containers(lucidum_dir, services=True)
+        running_services = list_docker_compose_containers(lucidum_dir, services=True, filter_="status=running")
+        if component_name not in services.split():
+            raise HTTPException(status_code=404, detail=f"Component not found: {component_name}")
+        if component_name in running_services.split():
+            stop_docker_compose_service(lucidum_dir, component_name)
+    else:
+        stop_docker_compose(lucidum_dir)
+    return list_docker_compose_containers(lucidum_dir)
+
+
+def handle_restart_action(component_name: str = None):
+    lucidum_dir = get_lucidum_dir()
+    if component_name is not None:
+        services = list_docker_compose_containers(lucidum_dir, services=True)
+        if component_name not in services.split():
+            raise HTTPException(status_code=404, detail=f"Component not found: {component_name}")
+        restart_docker_compose_service(lucidum_dir, component_name)
+    else:
+        restart_docker_compose(lucidum_dir)
+    return list_docker_compose_containers(lucidum_dir)
+
+
+def handle_logs_action(component_name: str = None, tail: int = 2000):
+    if not (0 <= tail <= 10000):
+        raise HTTPException(status_code=400, detail="Parameter 'tail' should be in range 0-10000")
+    lucidum_dir = get_lucidum_dir()
+    list_result = list_docker_compose_containers(lucidum_dir, services=True)
+    services = list_result.split()
+    if component_name is not None:
+        if component_name not in services:
+            raise HTTPException(status_code=404, detail=f"Component not found: {component_name}")
+        output = get_docker_compose_logs(lucidum_dir, component_name, tail)
+    else:
+        tail_per_service = int(tail / len(services))
+        output = get_docker_compose_logs(lucidum_dir, tail=tail_per_service)
+    return output
+
+
+@api_router.get("/docker-compose", tags=["docker-compose"])
+@api_router.get("/docker-compose/{component_name}", tags=["docker-compose"])
+def manage_docker_compose_actions(component_name: str = None, action: str = None, lines: int = 2000):
+    if action == "start":
+        output = handle_start_action(component_name)
+    elif action == "stop":
+        output = handle_stop_action(component_name)
+    elif action == "restart":
+        output = handle_restart_action(component_name)
+    elif action == "logs":
+        output = handle_logs_action(component_name, lines)
+    else:
+        raise HTTPException(status_code=400, detail=f"Wrong action: {action}")
+
     return {
         "status": "OK",
         "message": "success",

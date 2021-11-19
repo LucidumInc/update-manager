@@ -244,30 +244,6 @@ def installecr(component: InstallECRComponentModel):
     }
 
 
-@api_router.post("/docker-compose/start", tags=["docker-compose"])
-def start_docker_compose_():
-    lucidum_dir = get_lucidum_dir()
-    start_docker_compose(lucidum_dir)
-    output = list_docker_compose_containers(lucidum_dir)
-    return {
-        "status": "OK",
-        "message": "success",
-        "output": output,
-    }
-
-
-@api_router.post("/docker-compose/stop", tags=["docker-compose"])
-def stop_docker_compose_():
-    lucidum_dir = get_lucidum_dir()
-    stop_docker_compose(lucidum_dir)
-    output = list_docker_compose_containers(lucidum_dir)
-    return {
-        "status": "OK",
-        "message": "success",
-        "output": output,
-    }
-
-
 def handle_start_action(component_name: str = None):
     lucidum_dir = get_lucidum_dir()
     if component_name is not None:

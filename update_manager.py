@@ -113,5 +113,31 @@ def restore(data):
     restore_lucidum(list(data))
 
 
+@cli.command()
+def build_ca() -> None:
+    from rsa import build_ca as build_ca_
+    build_ca_()
+
+
+@cli.command()
+@click.option("--name", "-n", required=True, type=str)
+def build_key_server(name: str) -> None:
+    from rsa import build_key_server as build_key_server_
+    build_key_server_(name)
+
+
+@cli.command()
+@click.option("--name", "-n", required=True, type=str)
+def build_key(name: str) -> None:
+    from rsa import build_key as build_key_
+    build_key_(name)
+
+
+@cli.command()
+def build_dh() -> None:
+    from rsa import build_dh as build_dh_
+    build_dh_()
+
+
 if __name__ == '__main__':
     cli()

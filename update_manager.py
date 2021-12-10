@@ -114,29 +114,33 @@ def restore(data):
 
 
 @cli.command()
-def build_ca() -> None:
+@click.option("--key-dir", "-d", required=False, default="keys", type=click.Path(exists=True, file_okay=False))
+def build_ca(key_dir: str = "keys") -> None:
     from rsa import build_ca as build_ca_
-    build_ca_()
+    build_ca_(key_dir=key_dir)
 
 
 @cli.command()
 @click.option("--name", "-n", required=True, type=str)
-def build_key_server(name: str) -> None:
+@click.option("--key-dir", "-d", required=False, default="keys", type=click.Path(exists=True, file_okay=False))
+def build_key_server(name: str, key_dir: str = "keys") -> None:
     from rsa import build_key_server as build_key_server_
-    build_key_server_(name)
+    build_key_server_(name, key_dir=key_dir)
 
 
 @cli.command()
 @click.option("--name", "-n", required=True, type=str)
-def build_key(name: str) -> None:
-    from rsa import build_key as build_key_
-    build_key_(name)
+@click.option("--key-dir", "-d", required=False, default="keys", type=click.Path(exists=True, file_okay=False))
+def build_key_client(name: str, key_dir: str = "keys") -> None:
+    from rsa import build_key_client as build_key_client_
+    build_key_client_(name, key_dir=key_dir)
 
 
 @cli.command()
-def build_dh() -> None:
+@click.option("--key-dir", "-d", required=False, default="keys", type=click.Path(exists=True, file_okay=False))
+def build_dh(key_dir: str = "keys") -> None:
     from rsa import build_dh as build_dh_
-    build_dh_()
+    build_dh_(key_dir=key_dir)
 
 
 if __name__ == '__main__':

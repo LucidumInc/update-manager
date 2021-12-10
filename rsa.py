@@ -190,7 +190,7 @@ def build_key_server(
         f.write(csr.public_bytes(encoding=serialization.Encoding.PEM))
 
 
-def build_key(
+def build_key_client(
     name: str,
     key_dir: str = KEY_DIR,
     ca_key_filepath: str = None,

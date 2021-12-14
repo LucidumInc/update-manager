@@ -1,4 +1,6 @@
 import json
+import subprocess
+import uuid
 from datetime import datetime, timezone
 
 import base64
@@ -8,18 +10,22 @@ import logging
 import importlib
 import requests
 from typing import Optional
+
+import shutil
 from pymongo import MongoClient
 from urllib.parse import quote_plus
 
 import uvicorn
-from fastapi import FastAPI, APIRouter, HTTPException, Request
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Query
+from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from loguru import logger
 from pydantic import BaseModel, validator
+from starlette.background import BackgroundTask
 
-from config_handler import get_lucidum_dir, get_airflow_db_config, get_images, get_mongo_config, get_ecr_token
+from config_handler import get_lucidum_dir, get_airflow_db_config, get_images, get_mongo_config, get_ecr_token, \
+    get_key_dir_config
 from docker_service import start_docker_compose, stop_docker_compose, list_docker_compose_containers, \
     start_docker_compose_service, stop_docker_compose_service, restart_docker_compose, restart_docker_compose_service, \
     get_docker_compose_logs
@@ -28,6 +34,8 @@ from healthcheck_handler import get_health_information
 from install_handler import install_image_from_ecr
 import license_handler
 from sqlalchemy import create_engine
+
+from rsa import build_key_client
 
 AIRFLOW_DOCKER_FILENAME = "airflow_docker.py"
 
@@ -319,6 +327,49 @@ def manage_docker_compose_actions(component_name: str = None, action: str = None
         "message": "success",
         "output": output,
     }
+
+
+def get_public_ip_address() -> str:
+    return requests.get("https://api.ipify.org").text
+
+
+def delete_file(filepath: str) -> None:
+    if os.path.isfile(filepath):
+        os.remove(filepath)
+
+
+def archive_directory(filepath: str, dir_name: str) -> None:
+    cmd = f"tar -czvf {filepath} --directory={dir_name} ."
+    try:
+        subprocess.run(cmd.split(), check=True)
+    except Exception:
+        delete_file(filepath)
+        raise
+
+
+@api_router.get("/tunnel/client/keys")
+def get_client_keyfile(
+    name: str = Query(...),
+    ip: Optional[str] = Query(None, regex="^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$")
+):
+    if ip is None:
+        ip = get_public_ip_address()
+    key_dir = f"{name}_{str(uuid.uuid4())}"
+    try:
+        ca_key_dir = get_key_dir_config()
+        build_key_client(
+            name, key_dir=key_dir,
+            ca_key_filepath=os.path.join(ca_key_dir, "ca.key"),
+            ca_crt_filepath=os.path.join(ca_key_dir, "ca.crt")
+        )
+        template = templates.get_template("client.conf.jinja2")
+        template.stream(ip=ip, client_name=name).dump(os.path.join(key_dir, "client.conf"))
+        filepath = f"{key_dir}.tar.gz"
+        archive_directory(filepath, key_dir)
+        return FileResponse(filepath, filename="conf.tar.gz", background=BackgroundTask(delete_file, filepath))
+    finally:
+        if os.path.isdir(key_dir):
+            shutil.rmtree(key_dir)
 
 
 @root_router.get("/setup", response_class=HTMLResponse, tags=["setup"])

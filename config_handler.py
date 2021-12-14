@@ -95,6 +95,10 @@ def get_ecr_token() -> str:
     return settings.get("ecr_token")
 
 
+def get_key_dir_config() -> str:
+    return required_field_check("KEY_DIR")
+
+
 def get_mongo_config():
     return {
         "mongo_host": required_field_check('MONGO_CONFIG.MONGO_HOST'),

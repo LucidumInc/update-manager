@@ -225,3 +225,6 @@ def get_ecr_pw():
         if len(credentials) > 1:
             return credentials[1]
     return None
+
+def get_ecr_url():
+    return settings.get('ECR_URL', None)

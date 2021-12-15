@@ -25,7 +25,7 @@ from pydantic import BaseModel, validator
 from starlette.background import BackgroundTask
 
 from config_handler import get_lucidum_dir, get_airflow_db_config, get_images, get_mongo_config, get_ecr_token, \
-    get_key_dir_config
+    get_key_dir_config, get_ecr_url
 from docker_service import start_docker_compose, stop_docker_compose, list_docker_compose_containers, \
     start_docker_compose_service, stop_docker_compose_service, restart_docker_compose, restart_docker_compose_service, \
     get_docker_compose_logs
@@ -217,8 +217,8 @@ def update_ecr_token_config() -> None:
         current_timestamp = int(datetime.now(tz=timezone.utc).timestamp())
         if current_timestamp <= data["expiration"]:
             return
-
-    token = requests.get(f"http://127.0.0.1:5500/ecr/token/{customer_name}")
+    ecr_url = get_ecr_url()
+    token = requests.get(f"{ecr_url}/{customer_name}", verify=False)
     _, public_key = license_handler.reformat_keys(pub_key=public_key)
     token_dict = {"global": {"ecr_token": license_handler.decrypt(token.json()["ecr_token"], public_key)}}
     write_settings("settings.toml", token_dict)

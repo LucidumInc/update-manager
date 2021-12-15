@@ -43,9 +43,6 @@ root_router = APIRouter()
 api_router = APIRouter(prefix="/update-manager/api")
 
 templates = Jinja2Templates(directory="templates")
-airflow_db = get_airflow_db_config()
-airflow_db_connection = create_engine(f"postgresql://{airflow_db['user']}:{airflow_db['pwd']}@{airflow_db['host']}:{airflow_db['port']}/{airflow_db['db']}").connect()
-
 
 class MongoDBClient:
     _mongo_db = "test_database"

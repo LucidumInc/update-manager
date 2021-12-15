@@ -25,7 +25,7 @@ from pydantic import BaseModel, validator
 from starlette.background import BackgroundTask
 
 from config_handler import get_lucidum_dir, get_airflow_db_config, get_images, get_mongo_config, get_ecr_token, \
-    get_key_dir_config, get_ecr_url
+    get_key_dir_config, get_ecr_url, get_ecr_client, get_aws_config, get_ecr_base
 from docker_service import start_docker_compose, stop_docker_compose, list_docker_compose_containers, \
     start_docker_compose_service, stop_docker_compose_service, restart_docker_compose, restart_docker_compose_service, \
     get_docker_compose_logs
@@ -206,6 +206,18 @@ def write_settings(filename, data):
 
 
 def update_ecr_token_config() -> None:
+    # check if using access_id or secret_key to access ecr
+    try:
+        access_key, secret_key = get_aws_config()
+        ecr_client = get_ecr_client(access_key, secret_key)
+        auth_config = ecr_client.auth_config
+        logger.info(auth_config)
+        if auth_config['registry'] == get_ecr_base():
+            logger.info('Not using ecr token for auth, no need to update ecr token')
+            return
+    except Exception as e:
+        logger.warning(e)
+
     system_settings = _db_client.get_first_document()
     customer_name = system_settings["company_name"]
     public_key = system_settings["public_key"]

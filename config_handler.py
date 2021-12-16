@@ -96,7 +96,7 @@ def get_ecr_token() -> str:
 
 
 def get_key_dir_config() -> str:
-    return required_field_check("KEY_DIR")
+    return settings.get("KEY_DIR", "/usr/lucidum/easy-rsa/keys")
 
 
 def get_mongo_config():

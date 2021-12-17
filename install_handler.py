@@ -145,8 +145,10 @@ def run_docker_compose_restart(container: str):
 def restart_docker_compose_services():
     logger.info("Restarting docker-compose services...")
     lucidum_dir = get_lucidum_dir()
-    subprocess.run([shutil.which("docker-compose"), "down"], cwd=lucidum_dir, check=True)
-    subprocess.run([shutil.which("docker-compose"), "up", "-d"], cwd=lucidum_dir, check=True)
+    try:
+        subprocess.run([shutil.which("docker-compose"), "down"], cwd=lucidum_dir, check=True)
+    finally:
+        subprocess.run([shutil.which("docker-compose"), "up", "-d"], cwd=lucidum_dir, check=True)
 
 
 def create_hard_link(src, dst):

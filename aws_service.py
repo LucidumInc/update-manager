@@ -48,7 +48,8 @@ class ECRClient:
 
     def _get_ecr_client(self):
         kwargs = {
-            "region_name": self._region
+            "region_name": self._region,
+            "verify": False
         }
         if self._access_key and self._secret_key:
             kwargs["aws_access_key_id"] = self._access_key

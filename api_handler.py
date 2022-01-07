@@ -1,3 +1,4 @@
+import glob
 import json
 import subprocess
 import uuid
@@ -355,6 +356,16 @@ def archive_directory(filepath: str, dir_name: str) -> None:
         delete_file(filepath)
         raise
 
+@api_router.get("/connector/mapping")
+def get_connector_mapping():
+    result = []
+    source_mapping_files = '/usr/lucidum/connector*/external/source-mapping.json'
+    for path in glob.glob(source_mapping_files):
+        with open(path) as f:
+            for item in json.load(f):
+                result.append({"connector_name": item['platform'], "type": item['type'], "service": item['technology']})
+    result = [i for n, i in enumerate(result) if i not in result[n + 1:]] # remove duplicates
+    return result
 
 @api_router.get("/tunnel/client/keys")
 def get_client_keyfile(

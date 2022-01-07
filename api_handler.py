@@ -26,7 +26,7 @@ from pydantic import BaseModel, validator
 from starlette.background import BackgroundTask
 
 from config_handler import get_lucidum_dir, get_airflow_db_config, get_images, get_mongo_config, get_ecr_token, \
-    get_key_dir_config, get_ecr_url, get_ecr_client, get_aws_config, get_ecr_base
+    get_key_dir_config, get_ecr_url, get_ecr_client, get_aws_config, get_ecr_base, get_source_mapping_file_path
 from docker_service import start_docker_compose, stop_docker_compose, list_docker_compose_containers, \
     start_docker_compose_service, stop_docker_compose_service, restart_docker_compose, restart_docker_compose_service, \
     get_docker_compose_logs
@@ -359,8 +359,8 @@ def archive_directory(filepath: str, dir_name: str) -> None:
 @api_router.get("/connector/mapping")
 def get_connector_mapping():
     result = []
-    source_mapping_files = '/usr/lucidum/connector*/external/source-mapping.json'
-    for path in glob.glob(source_mapping_files):
+    source_mapping_file_path = get_source_mapping_file_path()
+    for path in glob.glob(source_mapping_file_path):
         with open(path) as f:
             for item in json.load(f):
                 result.append({"connector_name": item['platform'], "type": item['type'], "service": item['technology']})

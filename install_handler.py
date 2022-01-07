@@ -147,6 +147,8 @@ def restart_docker_compose_services():
     lucidum_dir = get_lucidum_dir()
     try:
         subprocess.run([shutil.which("docker-compose"), "down"], cwd=lucidum_dir, check=True)
+    except:
+        logger.error('docker-compose down error')
     finally:
         subprocess.run([shutil.which("docker-compose"), "up", "-d"], cwd=lucidum_dir, check=True)
 

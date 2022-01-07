@@ -226,5 +226,8 @@ def get_ecr_pw():
             return credentials[1]
     return None
 
+def get_source_mapping_file_path():
+    return settings.get('SOURCE_MAPPING_FILE_PATH', '/usr/lucidum/connector*/external/source-mapping.json')
+
 def get_ecr_url():
     return settings.get('ECR_URL', None)

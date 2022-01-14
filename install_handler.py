@@ -14,9 +14,10 @@ from loguru import logger
 from tabulate import tabulate
 
 from config_handler import get_archive_config, get_lucidum_dir, get_jinja_templates_dir, \
-    get_docker_compose_tmplt_file, get_ecr_images, get_images_from_ecr, get_local_images
+    get_docker_compose_tmplt_file, get_ecr_images, get_images_from_ecr, get_local_images, \
+    get_service_image_mapping_config
 from docker_service import load_docker_images, pull_docker_image, copy_files_from_docker_container, \
-    remove_docker_image, list_docker_images, get_docker_image
+    remove_docker_image, list_docker_images, get_docker_image, stop_docker_compose_service
 from exceptions import AppError
 
 _jinja_env = Environment(loader=FileSystemLoader(get_jinja_templates_dir()))
@@ -132,7 +133,9 @@ def format_docker_compose(images: list):
 
 def run_docker_compose() -> None:
     logger.info("Running docker-compose to up lucidum infrastructure...")
-    subprocess.run([shutil.which("docker-compose"), "up", "-d"], cwd=get_lucidum_dir(), check=True)
+    subprocess.run(
+        [shutil.which("docker-compose"), "up", "-d"], cwd=get_lucidum_dir(), input=b"y", check=True
+    )
 
 
 def run_docker_compose_restart(container: str):
@@ -185,19 +188,54 @@ class DockerImagesUpdater:
         if self._copy_default and docker_path and host_path:
             copy_files_from_docker_container(image, docker_path, host_path)
 
-    def __call__(self):
-        components = []
-        for ecr_image in self._ecr_images:
-            self._update_image(ecr_image)
-            components.append(ecr_image["name"])
+    def restart(self) -> None:
+        components = [component["name"] for component in self._ecr_images]
         if (self._restart and "mvp1_backend" in components) or \
                 (self._restart and any("connector-" in component for component in components)):
             restart_docker_compose_services()
+
+    def __call__(self):
+        for ecr_image in self._ecr_images:
+            self._update_image(ecr_image)
+        self.restart()
         for image in self._images_to_remove:
             try:
                 remove_docker_image(image, force=True)
             except APIError as e:
                 logger.warning(e)
+
+
+class DockerImagesUpdaterWithNewRestart(DockerImagesUpdater):
+    service_image_mapping = {
+        "web": "mvp1_backend",
+        "connector-api": "connector-api",
+        "action-manager": "action-manager",
+    }
+
+    def restart(self) -> None:
+        if not self._restart:
+            return
+        lucidum_dir = get_lucidum_dir()
+        mapping = get_service_image_mapping_config() or self.service_image_mapping
+        for component in self._ecr_images:
+            service = self._get_service_by_image(mapping, component["name"])
+            if service is None:
+                continue
+            stop_docker_compose_service(lucidum_dir, service)
+            image_tag = f"{component['name']}:{component['version']}"
+            try:
+                remove_docker_image(image_tag, force=True)
+            except APIError as e:
+                logger.warning(e)
+            image = pull_docker_image(component["image"])
+            image.tag(image_tag)
+            image.reload()
+        run_docker_compose()
+
+    def _get_service_by_image(self, mapping: dict, image_name: str) -> str:
+        for service, image in mapping.items():
+            if image == image_name:
+                return service
 
 
 @logger.catch(onerror=lambda _: sys.exit(1))
@@ -243,7 +281,7 @@ def install_ecr(components, copy_default, restart, get_images=get_ecr_images):
 
 @logger.catch(onerror=lambda _: sys.exit(1))
 def install_image_from_ecr(images, copy_default, restart):
-    update_docker_images = DockerImagesUpdater(images, copy_default, restart)
+    update_docker_images = DockerImagesUpdaterWithNewRestart(images, copy_default, restart)
     update_docker_images()
 
 @logger.catch(onerror=lambda _: sys.exit(1))

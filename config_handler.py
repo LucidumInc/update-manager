@@ -118,6 +118,10 @@ def get_airflow_db_config():
     }
 
 
+def get_service_image_mapping_config() -> dict:
+    return settings.get("SERVICE_IMAGE_MAPPING")
+
+
 def get_ecr_client(access_key: str = None, secret_key: str = None) -> ECRClient:
     return ECRClient(
         settings.get("AWS_REGION", "us-west-1"), access_key, secret_key

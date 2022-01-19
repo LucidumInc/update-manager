@@ -59,10 +59,28 @@ class MongoBackupRunner(BaseBackupRunner):
     container_dir = "/bitnami/mongodb"
     host_dir = "{}/mongo/db"
 
+    def __init__(
+        self,
+        name: str,
+        file_handler,
+        backup_dir: str = None,
+        path: str = None,
+        collection: str = None,
+        exclude_collections: list = None
+    ) -> None:
+        super().__init__(name, file_handler, backup_dir, path)
+        self.collection = collection
+        self.exclude_collections = exclude_collections
+
     def __call__(self):
         container = get_docker_container("mongo")
         filename = f"{str(uuid.uuid4())}_mongo_dump.gz"
         dump_cmd = f"mongodump --username={{mongo_user}} --password={{mongo_pwd}} --authenticationDatabase=test_database --host={{mongo_host}} --port={{mongo_port}} --forceTableScan --archive={self.container_dir}/{filename} --gzip --db={{mongo_db}}"
+        if self.collection is not None:
+            dump_cmd = f"{dump_cmd} --collection={self.collection}"
+        if self.exclude_collections:
+            excludes = [f"--excludeCollection={collection}" for collection in self.exclude_collections]
+            dump_cmd = f"{dump_cmd} {' '.join(excludes)}"
         logger.info("Dumping data for '{}' into {} file...", self.name, self.backup_file)
         try:
             result = container.exec_run(dump_cmd.format(**get_mongo_config()))
@@ -119,13 +137,22 @@ class LucidumDirBackupRunner(BaseBackupRunner):
         return self.backup_file
 
 
-def get_backup_runner(data_to_backup: str, filepath: str = None):
+def get_backup_runner(
+    data_to_backup: str, filepath: str = None, collection: str = None, exclude_collections: list = None
+):
     backup_dir = get_backup_dir()
     file_handler = get_file_handler(filepath) if filepath is not None else LocalFileHandler()
     if data_to_backup == "mysql":
         return MySQLBackupRunner(data_to_backup, file_handler, backup_dir=backup_dir, path=filepath)
     elif data_to_backup == "mongo":
-        return MongoBackupRunner(data_to_backup, file_handler, backup_dir=backup_dir, path=filepath)
+        return MongoBackupRunner(
+            data_to_backup,
+            file_handler,
+            backup_dir=backup_dir,
+            path=filepath,
+            collection=collection,
+            exclude_collections=exclude_collections
+        )
     elif data_to_backup == "lucidum":
         return LucidumDirBackupRunner(
             data_to_backup, file_handler, backup_dir=backup_dir, path=filepath
@@ -135,9 +162,9 @@ def get_backup_runner(data_to_backup: str, filepath: str = None):
 
 
 @logger.catch(onerror=lambda _: sys.exit(1))
-def backup(data: list, filepath: str):
+def backup(data: list, filepath: str, collection: str = None, exclude_collections: list = None):
     try:
-        backup_runners = [get_backup_runner(d, filepath) for d in data]
+        backup_runners = [get_backup_runner(d, filepath, collection, exclude_collections) for d in data]
         for backup_runner in backup_runners:
             backup_runner()
     except AppError as e:

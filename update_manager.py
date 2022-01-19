@@ -2,7 +2,7 @@ import click
 import json
 from loguru import logger
 
-from config_handler import get_images_from_ecr, get_local_images, get_images
+from config_handler import get_images_from_ecr, get_local_images, get_images, get_key_dir_config
 from history_handler import history_command, get_install_ecr_entries, get_history_command_choices
 from install_handler import install_ecr, get_components, remove_components, list_components, install_image_from_ecr
 logger.add("logs/job_{time}.log", rotation="1 day", retention="30 days", diagnose=True)
@@ -99,9 +99,11 @@ def import_(db, source, destination):
 @cli.command()
 @click.option("--data", "-d", multiple=True, default=["lucidum"], type=click.Choice(['mysql', 'mongo', 'lucidum']))
 @click.option("--filepath", "-f", type=click.Path())
-def backup(data: tuple, filepath: str):
+@click.option("--include-collection", "-i")
+@click.option("--exclude-collection", "-e", multiple=True)
+def backup(data: tuple, filepath: str, include_collection: str = None, exclude_collection: tuple = None):
     from backup_handler import backup as backup_lucidum
-    backup_lucidum(list(data), filepath)
+    backup_lucidum(list(data), filepath, include_collection, list(exclude_collection))
 
 
 @cli.command()
@@ -109,6 +111,44 @@ def backup(data: tuple, filepath: str):
 def restore(data):
     from restore_handler import restore as restore_lucidum
     restore_lucidum(list(data))
+
+
+@cli.command()
+@click.option(
+    "--key-dir", "-d", required=False, default=get_key_dir_config(), type=click.Path(exists=True, file_okay=False)
+)
+def build_ca(key_dir: str) -> None:
+    from rsa import build_ca as build_ca_
+    build_ca_(key_dir=key_dir)
+
+
+@cli.command()
+@click.option("--name", "-n", required=True, type=str)
+@click.option(
+    "--key-dir", "-d", required=False, default=get_key_dir_config(), type=click.Path(exists=True, file_okay=False)
+)
+def build_key_server(name: str, key_dir: str) -> None:
+    from rsa import build_key_server as build_key_server_
+    build_key_server_(name, key_dir=key_dir)
+
+
+@cli.command()
+@click.option("--name", "-n", required=True, type=str)
+@click.option(
+    "--key-dir", "-d", required=False, default=get_key_dir_config(), type=click.Path(exists=True, file_okay=False)
+)
+def build_key_client(name: str, key_dir: str) -> None:
+    from rsa import build_key_client as build_key_client_
+    build_key_client_(name, key_dir=key_dir)
+
+
+@cli.command()
+@click.option(
+    "--key-dir", "-d", required=False, default=get_key_dir_config(), type=click.Path(exists=True, file_okay=False)
+)
+def build_dh(key_dir: str) -> None:
+    from rsa import build_dh as build_dh_
+    build_dh_(key_dir=key_dir)
 
 
 if __name__ == '__main__':

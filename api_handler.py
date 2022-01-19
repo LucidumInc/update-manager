@@ -319,7 +319,7 @@ def get_connector_mapping():
         with open(path) as f:
             for item in json.load(f):
                 result.append({"connector_name": item['platform'], "type": item['type'], "service": item['technology']})
-    result = [i for n, i in enumerate(result) if i not in result[n + 1:]] # remove duplicates
+    result = [i for n, i in enumerate(result) if i not in result[n + 1:]]
     return result
 
 @api_router.get("/tunnel/client/keys")

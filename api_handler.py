@@ -145,51 +145,6 @@ class InstallECRComponentModel(BaseModel):
     copy_default: Optional[bool] = False
 
 
-@api_router.get("/airflow", tags=["airflow"])
-def get_airflow_dag_file() -> dict:
-    try:
-        with open(os.path.join(get_lucidum_dir(), "airflow", "dags", AIRFLOW_DOCKER_FILENAME)) as f:
-            content = f.read()
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail="Airflow file was not found") from e
-
-    return {
-        "status": "OK",
-        "message": "success",
-        "file_content": content,
-    }
-
-@api_router.get("/airflow/dags/{dag_id}/dagRuns", tags=["airflow"])
-def get_airflow_dag_runs(dag_id: str = None) -> dict:
-    query = f"""select dag_id, run_id, execution_date, end_date - start_date AS duration
-                  from dag_run
-                 where dag_id = '{dag_id}'
-                 order by start_date desc
-                 limit 10"""
-    records = airflow_db_connection.execute(query).fetchall()
-    results = [dict(row) for row in records]
-    return {
-        "status": "OK",
-        "message": "success",
-        "data": results
-    }
-
-@api_router.get("/airflow/dags/{dag_id}/dagRuns/{execution_date}/tasks", tags=["airflow"])
-def get_airflow_dag_runs_tasks(dag_id: str = None, execution_date: str = None) -> dict:
-    query = f"""select task_id, dag_id, execution_date, start_date, end_date, duration, state, try_number, job_id, pid
-                  from task_instance
-                 where dag_id = '{dag_id}'
-                   and execution_date = '{execution_date}'
-                 order by job_id"""
-    records = airflow_db_connection.execute(query).fetchall()
-    results = [dict(row) for row in records]
-    return {
-        "status": "OK",
-        "message": "success",
-        "data": results
-    }
-
-
 @api_router.get("/healthcheck", tags=["health"])
 @api_router.get("/healthcheck/{category}", tags=["health"])
 def get_health_status(category: str = None) -> dict:

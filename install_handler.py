@@ -212,25 +212,45 @@ class DockerImagesUpdaterWithNewRestart(DockerImagesUpdater):
         "action-manager": "action-manager",
     }
 
-    def restart(self) -> None:
-        if not self._restart:
-            return
+    def __init__(self, ecr_images, copy_default, restart, update_compose_file=False) -> None:
+        super().__init__(ecr_images, copy_default, restart)
+        self.update_compose_file = update_compose_file
+
+    def update_docker_compose_file(self):
         lucidum_dir = get_lucidum_dir()
+        docker_compose_file_path = os.path.join(lucidum_dir, "docker-compose.yml")
+        with open(docker_compose_file_path) as f:
+            data = yaml.full_load(f)
         mapping = get_service_image_mapping_config() or self.service_image_mapping
         for component in self._ecr_images:
             service = self._get_service_by_image(mapping, component["name"])
             if service is None:
                 continue
-            stop_docker_compose_service(lucidum_dir, service)
-            image_tag = f"{component['name']}:{component['version']}"
-            try:
-                remove_docker_image(image_tag, force=True)
-            except APIError as e:
-                logger.warning(e)
-            image = pull_docker_image(component["image"])
-            image.tag(image_tag)
-            image.reload()
-        run_docker_compose()
+            if service in data["services"]:
+                data["services"][service]["image"] = f"{component['name']}:{component['version']}"
+        with open(docker_compose_file_path, "w") as f:
+            yaml.dump(data, f)
+
+    def restart(self) -> None:
+        if self.update_compose_file or self._restart:
+            lucidum_dir = get_lucidum_dir()
+            mapping = get_service_image_mapping_config() or self.service_image_mapping
+            for component in self._ecr_images:
+                service = self._get_service_by_image(mapping, component["name"])
+                if service is None:
+                    continue
+                stop_docker_compose_service(lucidum_dir, service)
+                image_tag = f"{component['name']}:{component['version']}"
+                try:
+                    remove_docker_image(image_tag, force=True)
+                except APIError as e:
+                    logger.warning(e)
+                image = pull_docker_image(component["image"])
+                image.tag(image_tag)
+                image.reload()
+            if self.update_compose_file:
+                self.update_docker_compose_file()
+            run_docker_compose()
 
     def _get_service_by_image(self, mapping: dict, image_name: str) -> str:
         for service, image in mapping.items():
@@ -280,8 +300,8 @@ def install_ecr(components, copy_default, restart, get_images=get_ecr_images):
     update_docker_images()
 
 @logger.catch(onerror=lambda _: sys.exit(1))
-def install_image_from_ecr(images, copy_default, restart):
-    update_docker_images = DockerImagesUpdaterWithNewRestart(images, copy_default, restart)
+def install_image_from_ecr(images, copy_default, restart, update_compose_file=False):
+    update_docker_images = DockerImagesUpdaterWithNewRestart(images, copy_default, restart, update_compose_file)
     update_docker_images()
 
 @logger.catch(onerror=lambda _: sys.exit(1))

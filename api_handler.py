@@ -143,6 +143,7 @@ class InstallECRComponentModel(BaseModel):
     component_version: str
     restart: bool = False
     copy_default: Optional[bool] = False
+    update_files: Optional[bool] = False
 
 
 @api_router.get("/healthcheck", tags=["health"])
@@ -205,11 +206,14 @@ def update_ecr_token(param: EcrModel):
 @api_router.post("/installecr", tags=["installecr"])
 def installecr(component: InstallECRComponentModel):
     components = [f"{component.component_name}:{component.component_version}"]
-    logger.info(f"ecr components: {components}, copy default: {component.copy_default}, restart: {component.restart}")
+    logger.info(
+        "ecr components: {}, copy default: {}, restart: {}, update files: {}",
+        components, component.copy_default, component.restart, component.update_files
+    )
     update_ecr_token_config()
     images = get_images(components)
     logger.info(json.dumps(images, indent=2))
-    install_image_from_ecr(images, component.copy_default, component.restart)
+    install_image_from_ecr(images, component.copy_default, component.restart, update_files=component.update_files)
 
     return {
         "status": "OK",

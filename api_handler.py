@@ -262,7 +262,7 @@ def handle_restart_action(component_name: str = None):
 
 
 def handle_logs_action(component_name: str = None, tail: int = 2000):
-    if not (0 <= tail <= 10000):
+    if not 0 <= tail <= 10000:
         raise HTTPException(status_code=400, detail="Parameter 'tail' should be in range 0-10000")
     lucidum_dir = get_lucidum_dir()
     list_result = list_docker_compose_containers(lucidum_dir, services=True)

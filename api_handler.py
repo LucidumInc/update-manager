@@ -329,7 +329,7 @@ def get_connector_mapping():
 @api_router.get("/tunnel/client/keys")
 def get_client_keyfile(
     name: str = Query(...),
-    ip: Optional[str] = Query(None, regex="^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$")
+    ip: Optional[str] = Query(None, regex=r"^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$")
 ):
     if ip is None:
         ip = get_public_ip_address()

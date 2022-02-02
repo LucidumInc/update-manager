@@ -34,7 +34,7 @@ jobs:
         run: flake8 *.py --count --statistics --ignore=E501,F401,E265,E302,E722,E731,W391
 
       - name: lint python code with pylint
-        run: pylint --disable=missing-function-docstring,line-too-long,missing-module-docstring,invalid-name,trailing-newlines,bare-except,too-few-public-methods,missing-class-docstring,no-else-return,unidiomatic-typecheck,unused-import,no-self-use,inconsistent-return-statements,wrong-import-order,unnecessary-pass,unused-argument,broad-except,too-many-arguments,consider-using-get,import-outside-toplevel,unnecessary-comprehension,global-statement,too-many-locals --extension-pkg-whitelist=pydantic *.py
+        run: pylint --disable=missing-function-docstring,line-too-long,missing-module-docstring,invalid-name,trailing-newlines,bare-except,too-few-public-methods,missing-class-docstring,no-else-return,unidiomatic-typecheck,unused-import,no-self-use,inconsistent-return-statements,wrong-import-order,unnecessary-pass,unused-argument,broad-except,too-many-arguments,consider-using-get,import-outside-toplevel,unnecessary-comprehension,global-statement,too-many-locals,no-self-argument --extension-pkg-whitelist=pydantic *.py
 
       - name: unit test python code
         run: echo unit

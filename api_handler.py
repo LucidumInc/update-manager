@@ -10,7 +10,7 @@ import sys
 import logging
 import importlib
 import requests
-from typing import Optional
+from typing import Optional, List
 
 import shutil
 from pymongo import MongoClient
@@ -32,7 +32,7 @@ from docker_service import start_docker_compose, stop_docker_compose, list_docke
     get_docker_compose_logs
 from exceptions import AppError
 from healthcheck_handler import get_health_information
-from install_handler import install_image_from_ecr
+from install_handler import install_image_from_ecr, update_docker_compose_file, update_airflow_settings_file
 import license_handler
 from sqlalchemy import create_engine
 
@@ -146,6 +146,24 @@ class InstallECRComponentModel(BaseModel):
     update_files: Optional[bool] = False
 
 
+class UpdateComponentVersionModel(BaseModel):
+    component_name: str
+    component_version: str
+    files: List[str]
+
+    @validator("files")
+    def check_files_not_empty(cls, v):
+        if not v:
+            raise ValueError("should not be empty")
+        return v
+
+    @validator("files", each_item=True)
+    def check_files_contains(cls, v):
+        options = ["docker-compose", "airflow"]
+        assert v in options, f"'{v}' should be one of {options}"
+        return v
+
+
 @api_router.get("/healthcheck", tags=["health"])
 @api_router.get("/healthcheck/{category}", tags=["health"])
 def get_health_status(category: str = None) -> dict:
@@ -214,6 +232,20 @@ def installecr(component: InstallECRComponentModel):
     images = get_images(components)
     logger.info(json.dumps(images, indent=2))
     install_image_from_ecr(images, component.copy_default, component.restart, update_files=component.update_files)
+
+    return {
+        "status": "OK",
+        "message": "success",
+    }
+
+
+@api_router.post("/update/version", tags=["update-version"])
+def update_files(component: UpdateComponentVersionModel):
+    components = [{"name": component.component_name, "version": component.component_version}]
+    if "docker-compose" in component.files:
+        update_docker_compose_file(components)
+    if "airflow" in component.files:
+        update_airflow_settings_file(components)
 
     return {
         "status": "OK",

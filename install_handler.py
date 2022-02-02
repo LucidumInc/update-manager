@@ -22,6 +22,18 @@ from exceptions import AppError
 
 _jinja_env = Environment(loader=FileSystemLoader(get_jinja_templates_dir()))
 
+# all service to image mapping should be here in order to be updated
+DOCKER_COMPOSE_SERVICE_IMAGE_MAPPING = {
+    "web": "mvp1_backend",
+    "connector-api": "connector-api",
+    "action-manager": "action-manager",
+}
+
+# airflow only if image name is different from service name
+AIRFLOW_SERVICE_IMAGE_MAPPING = {
+    "merger": "python/ml",
+}
+
 
 class BaseTemplateFormatter:
     """Represents base formatter for jinja template."""
@@ -205,73 +217,72 @@ class DockerImagesUpdater:
                 logger.warning(e)
 
 
-class DockerImagesUpdaterWithNewRestart(DockerImagesUpdater):
-    docker_compose_service_image_mapping = {
-        "web": "mvp1_backend",
-        "connector-api": "connector-api",
-        "action-manager": "action-manager",
-    }
+def _get_service_by_image(mapping: dict, image_name: str) -> str:
+    for service, image in mapping.items():
+        if image == image_name:
+            return service
 
-    airflow_service_image_mapping = {
-        "merger": "python/ml",
-    }
+
+def update_docker_compose_file(components: list) -> None:
+    lucidum_dir = get_lucidum_dir()
+    docker_compose_file_path = os.path.join(lucidum_dir, "docker-compose.yml")
+    if not os.path.isfile(docker_compose_file_path):
+        logger.warning("'{}' file does not exist", docker_compose_file_path)
+        return
+    with open(docker_compose_file_path) as f:
+        data = yaml.full_load(f)
+    mapping = get_docker_compose_service_image_mapping_config() or DOCKER_COMPOSE_SERVICE_IMAGE_MAPPING
+    for component in components:
+        service = _get_service_by_image(mapping, component["name"])
+        if service is None:
+            continue
+        if service not in data["services"]:
+            logger.warning("'{}' service not found in docker compose file", service)
+            continue
+        data["services"][service]["image"] = f"{component['name']}:{component['version']}"
+    with open(docker_compose_file_path, "w") as f:
+        yaml.dump(data, f)
+
+
+def update_airflow_settings_file(components: list) -> None:
+    lucidum_dir = get_lucidum_dir()
+    airflow_settings_file_path = os.path.join(lucidum_dir, "airflow", "dags", "settings.yml")
+    if not os.path.isfile(airflow_settings_file_path):
+        logger.warning("'{}' file does not exist", airflow_settings_file_path)
+        return
+    with open(airflow_settings_file_path) as f:
+        data = yaml.full_load(f)
+    mapping = get_airflow_service_image_mapping_config() or AIRFLOW_SERVICE_IMAGE_MAPPING
+    for component in components:
+        service = _get_service_by_image(mapping, component["name"])
+        if service is not None:
+            if service not in data["global"]:
+                logger.warning("'{}' service not found in airflow settings file", service)
+                continue
+            data["global"][service]["version"] = component["version"]
+        elif component["name"].startswith("connector"):
+            connector_type = component["name"].split("-", 1)[-1]
+            if "connectors" not in data["global"]:
+                logger.warning("No connectors found in airflow settings file")
+                continue
+            if connector_type not in data["global"]["connectors"]:
+                logger.warning("'{}' service not found in airflow settings file", component["name"])
+                continue
+            data["global"]["connectors"][connector_type]["version"] = component["version"]
+        else:
+            if component["name"] not in data["global"]:
+                logger.warning("'{}' service not found in airflow settings file", component["name"])
+                continue
+            data["global"][component["name"]]["version"] = component["version"]
+    with open(airflow_settings_file_path, "w") as f:
+        yaml.dump(data, f)
+
+
+class DockerImagesUpdaterWithNewRestart(DockerImagesUpdater):
 
     def __init__(self, ecr_images, copy_default, restart, update_files=False) -> None:
         super().__init__(ecr_images, copy_default, restart)
         self.update_files = update_files
-
-    def update_docker_compose_file(self):
-        lucidum_dir = get_lucidum_dir()
-        docker_compose_file_path = os.path.join(lucidum_dir, "docker-compose.yml")
-        if not os.path.isfile(docker_compose_file_path):
-            logger.warning("'{}' file does not exist", docker_compose_file_path)
-            return
-        with open(docker_compose_file_path) as f:
-            data = yaml.full_load(f)
-        mapping = get_docker_compose_service_image_mapping_config() or self.docker_compose_service_image_mapping
-        for component in self._ecr_images:
-            service = self._get_service_by_image(mapping, component["name"])
-            if service is None:
-                continue
-            if service not in data["services"]:
-                logger.warning("'{}' service not found in docker compose file", service)
-                continue
-            data["services"][service]["image"] = f"{component['name']}:{component['version']}"
-        with open(docker_compose_file_path, "w") as f:
-            yaml.dump(data, f)
-
-    def update_airflow_settings_file(self):
-        lucidum_dir = get_lucidum_dir()
-        airflow_settings_file_path = os.path.join(lucidum_dir, "airflow", "dags", "settings.yml")
-        if not os.path.isfile(airflow_settings_file_path):
-            logger.warning("'{}' file does not exist", airflow_settings_file_path)
-            return
-        with open(airflow_settings_file_path) as f:
-            data = yaml.full_load(f)
-        mapping = get_airflow_service_image_mapping_config() or self.airflow_service_image_mapping
-        for component in self._ecr_images:
-            service = self._get_service_by_image(mapping, component["name"])
-            if service is not None:
-                if service not in data["global"]:
-                    logger.warning("'{}' service not found in airflow settings file", service)
-                    continue
-                data["global"][service]["version"] = component["version"]
-            elif component["name"].startswith("connector"):
-                connector_type = component["name"].split("-", 1)[-1]
-                if "connectors" not in data["global"]:
-                    logger.warning("No connectors found in airflow settings file")
-                    continue
-                if connector_type not in data["global"]["connectors"]:
-                    logger.warning("'{}' service not found in airflow settings file", component["name"])
-                    continue
-                data["global"]["connectors"][connector_type]["version"] = component["version"]
-            else:
-                if component["name"] not in data["global"]:
-                    logger.warning("'{}' service not found in airflow settings file", component["name"])
-                    continue
-                data["global"][component["name"]]["version"] = component["version"]
-        with open(airflow_settings_file_path, "w") as f:
-            yaml.dump(data, f)
 
     def restart(self) -> None:
         if self.update_files or self._restart:
@@ -281,9 +292,9 @@ class DockerImagesUpdaterWithNewRestart(DockerImagesUpdater):
             if os.path.isfile(docker_compose_file_path):
                 with open(docker_compose_file_path) as f:
                     docker_compose_data = yaml.full_load(f)
-            mapping = get_docker_compose_service_image_mapping_config() or self.docker_compose_service_image_mapping
+            mapping = get_docker_compose_service_image_mapping_config() or DOCKER_COMPOSE_SERVICE_IMAGE_MAPPING
             for component in self._ecr_images:
-                service = self._get_service_by_image(mapping, component["name"])
+                service = _get_service_by_image(mapping, component["name"])
                 if service is None:
                     continue
                 if docker_compose_data is not None:
@@ -298,14 +309,9 @@ class DockerImagesUpdaterWithNewRestart(DockerImagesUpdater):
                 image.tag(image_tag)
                 image.reload()
             if self.update_files:
-                self.update_docker_compose_file()
-                self.update_airflow_settings_file()
+                update_docker_compose_file(self._ecr_images)
+                update_airflow_settings_file(self._ecr_images)
             run_docker_compose()
-
-    def _get_service_by_image(self, mapping: dict, image_name: str) -> str:
-        for service, image in mapping.items():
-            if image == image_name:
-                return service
 
 
 @logger.catch(onerror=lambda _: sys.exit(1))

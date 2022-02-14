@@ -21,14 +21,15 @@ def install(archive: str) -> None:
     install_archive(archive)
 
 @cli.command()
-@click.option('--components', '-c', required=True, multiple=True, help="isntall docker images from ecr")
+@click.option('--components', '-c', required=True, multiple=True, help="install docker images from ecr")
 @click.option('--copy-default', '-d', default=False, is_flag=True, help='copy default files from docker to host')
-@click.option('--restart', '-r', is_flag=True, help='restart web container')
-def installecr(components, copy_default, restart) -> None:
+@click.option('--restart', '-r', is_flag=True, help='restart components')
+@click.option('--update-files', '-u', default=False, is_flag=True, help='update files with components versions')
+def installecr(components, copy_default, restart, update_files) -> None:
     logger.info(f"ecr components: {components}, copy default: {copy_default}, restart: {restart}")
     images = get_images(components)
     logger.info(json.dumps(images, indent=2))
-    install_image_from_ecr(images, copy_default, restart)
+    install_image_from_ecr(images, copy_default, restart, update_files)
 
 
 @cli.command()

@@ -10,7 +10,7 @@ import sys
 import logging
 import importlib
 import requests
-from typing import Optional
+from typing import Optional, List
 
 import shutil
 from pymongo import MongoClient
@@ -32,7 +32,7 @@ from docker_service import start_docker_compose, stop_docker_compose, list_docke
     get_docker_compose_logs
 from exceptions import AppError
 from healthcheck_handler import get_health_information
-from install_handler import install_image_from_ecr
+from install_handler import install_image_from_ecr, update_docker_compose_file, update_airflow_settings_file
 import license_handler
 from sqlalchemy import create_engine
 
@@ -143,6 +143,25 @@ class InstallECRComponentModel(BaseModel):
     component_version: str
     restart: bool = False
     copy_default: Optional[bool] = False
+    update_files: Optional[bool] = False
+
+
+class UpdateComponentVersionModel(BaseModel):
+    component_name: str
+    component_version: str
+    files: List[str]
+
+    @validator("files")
+    def check_files_not_empty(cls, v):
+        if not v:
+            raise ValueError("should not be empty")
+        return v
+
+    @validator("files", each_item=True)
+    def check_files_contains(cls, v):
+        options = ["docker-compose", "airflow"]
+        assert v in options, f"'{v}' should be one of {options}"
+        return v
 
 
 @api_router.get("/healthcheck", tags=["health"])
@@ -205,11 +224,28 @@ def update_ecr_token(param: EcrModel):
 @api_router.post("/installecr", tags=["installecr"])
 def installecr(component: InstallECRComponentModel):
     components = [f"{component.component_name}:{component.component_version}"]
-    logger.info(f"ecr components: {components}, copy default: {component.copy_default}, restart: {component.restart}")
+    logger.info(
+        "ecr components: {}, copy default: {}, restart: {}, update files: {}",
+        components, component.copy_default, component.restart, component.update_files
+    )
     update_ecr_token_config()
     images = get_images(components)
     logger.info(json.dumps(images, indent=2))
-    install_image_from_ecr(images, component.copy_default, component.restart)
+    install_image_from_ecr(images, component.copy_default, component.restart, update_files=component.update_files)
+
+    return {
+        "status": "OK",
+        "message": "success",
+    }
+
+
+@api_router.post("/update/version", tags=["update-version"])
+def update_files(component: UpdateComponentVersionModel):
+    components = [{"name": component.component_name, "version": component.component_version}]
+    if "docker-compose" in component.files:
+        update_docker_compose_file(components)
+    if "airflow" in component.files:
+        update_airflow_settings_file(components)
 
     return {
         "status": "OK",
@@ -258,7 +294,7 @@ def handle_restart_action(component_name: str = None):
 
 
 def handle_logs_action(component_name: str = None, tail: int = 2000):
-    if not (0 <= tail <= 10000):
+    if not 0 <= tail <= 10000:
         raise HTTPException(status_code=400, detail="Parameter 'tail' should be in range 0-10000")
     lucidum_dir = get_lucidum_dir()
     list_result = list_docker_compose_containers(lucidum_dir, services=True)
@@ -325,7 +361,7 @@ def get_connector_mapping():
 @api_router.get("/tunnel/client/keys")
 def get_client_keyfile(
     name: str = Query(...),
-    ip: Optional[str] = Query(None, regex="^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$")
+    ip: Optional[str] = Query(None, regex=r"^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$")
 ):
     if ip is None:
         ip = get_public_ip_address()

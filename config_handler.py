@@ -118,8 +118,12 @@ def get_airflow_db_config():
     }
 
 
-def get_service_image_mapping_config() -> dict:
-    return settings.get("SERVICE_IMAGE_MAPPING")
+def get_docker_compose_service_image_mapping_config() -> dict:
+    return settings.get("DOCKER_COMPOSE_SERVICE_IMAGE_MAPPING")
+
+
+def get_airflow_service_image_mapping_config() -> dict:
+    return settings.get("AIRFLOW_SERVICE_IMAGE_MAPPING")
 
 
 def get_ecr_client(access_key: str = None, secret_key: str = None) -> ECRClient:

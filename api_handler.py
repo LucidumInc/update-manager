@@ -194,7 +194,7 @@ def update_ecr_token_config() -> None:
         logger.warning(e)
 
     system_settings = _db_client.get_first_document()
-    customer_name = system_settings["company_name"]
+    customer_name = system_settings["customer_name"]
     public_key = system_settings["public_key"]
 
     ecr_token = get_ecr_token()

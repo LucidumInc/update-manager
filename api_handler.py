@@ -13,6 +13,7 @@ import requests
 from typing import Optional, List
 
 import shutil
+from dateutil import parser
 from pymongo import MongoClient
 from urllib.parse import quote_plus
 
@@ -36,6 +37,7 @@ from install_handler import install_image_from_ecr, update_docker_compose_file, 
 import license_handler
 from sqlalchemy import create_engine
 
+from logs_handler import get_logs, CommandLogsHandler, get_file_log_handlers
 from rsa import build_key_client
 
 AIRFLOW_DOCKER_FILENAME = "airflow_docker.py"
@@ -162,6 +164,11 @@ class UpdateComponentVersionModel(BaseModel):
         options = ["docker-compose", "airflow"]
         assert v in options, f"'{v}' should be one of {options}"
         return v
+
+
+def delete_file(filepath: str) -> None:
+    if os.path.isfile(filepath):
+        os.remove(filepath)
 
 
 @api_router.get("/healthcheck", tags=["health"])
@@ -330,13 +337,25 @@ def manage_docker_compose_actions(component_name: str = None, action: str = None
     }
 
 
+@api_router.get("/logs", tags=["logs"])
+def get_logs_():
+    handlers = [
+        CommandLogsHandler("docker_compose", "docker-compose logs --tail=100"),
+    ]
+    file_log_handlers = get_file_log_handlers(
+        "/usr/lucidum/airflow/logs/airflow_db_cleanup/*/{date:%Y-%m-%d}*/1.log", lookback_days=1
+    )
+    handlers = handlers + file_log_handlers
+    filename = get_logs(handlers)
+    return FileResponse(
+        filename,
+        filename=filename,
+        background=BackgroundTask(delete_file, filename)
+    )
+
+
 def get_public_ip_address() -> str:
     return requests.get("https://api.ipify.org").text
-
-
-def delete_file(filepath: str) -> None:
-    if os.path.isfile(filepath):
-        os.remove(filepath)
 
 
 def archive_directory(filepath: str, dir_name: str) -> None:

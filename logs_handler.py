@@ -16,9 +16,6 @@ from config_handler import get_lucidum_dir
 
 class BaseLogsHandler:
 
-    def __init__(self) -> None:
-        super().__init__()
-
     def get_logs(self):
         raise NotImplementedError
 
@@ -41,7 +38,7 @@ class FileLogsHandler(BaseLogsHandler):
     def get_logs(self):
         logs = ""
         with open(self._filename) as f:
-            for line in (f.readlines()[-self._tail:]):
+            for line in f.readlines()[-self._tail:]:
                 logs = f"{logs}{line}"
         return logs
 
@@ -80,7 +77,7 @@ def get_file_log_handlers_old(pathname: str, date_parser, date_level: int):
     files = glob.glob(pathname)
     files_ = sorted(files, key=get_key)
     handlers = []
-    for key, value in groupby(files_, key=get_key):
+    for _, value in groupby(files_, key=get_key):
         filename = date_latest = None
         for f in value:
             date_level_path = f

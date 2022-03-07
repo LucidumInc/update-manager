@@ -13,6 +13,7 @@ import requests
 from typing import Optional, List
 
 import shutil
+import yaml
 from dateutil import parser
 from pymongo import MongoClient
 from urllib.parse import quote_plus
@@ -30,7 +31,7 @@ from config_handler import get_lucidum_dir, get_airflow_db_config, get_images, g
     get_key_dir_config, get_ecr_url, get_ecr_client, get_aws_config, get_ecr_base, get_source_mapping_file_path
 from docker_service import start_docker_compose, stop_docker_compose, list_docker_compose_containers, \
     start_docker_compose_service, stop_docker_compose_service, restart_docker_compose, restart_docker_compose_service, \
-    get_docker_compose_logs
+    get_docker_compose_logs, list_docker_containers
 from exceptions import AppError
 from healthcheck_handler import get_health_information
 from install_handler import install_image_from_ecr, update_docker_compose_file, update_airflow_settings_file
@@ -400,6 +401,54 @@ def get_client_keyfile(
     finally:
         if os.path.isdir(key_dir):
             shutil.rmtree(key_dir)
+
+
+def get_docker_containers_images_versions() -> dict:
+    docker_ps = []
+    for container in list_docker_containers():
+        for tag in container.image.tags:
+            image, version = tag.split(":", 1)
+            docker_ps.append({"image": image, "version": version})
+    return {
+        "docker_ps": docker_ps
+    }
+
+
+def get_airflow_images_versions() -> dict:
+    lucidum_dir = get_lucidum_dir()
+    airflow_settings_file_path = os.path.join(lucidum_dir, "airflow", "dags", "settings.yml")
+    with open(airflow_settings_file_path) as f:
+        data = yaml.full_load(f)
+    airflow = []
+    for key, value in data["global"].items():
+        if key == "connectors":
+            for connector_type, connector_params in value.items():
+                airflow.append({"image": f"connector-{connector_type}", "version": connector_params["version"]})
+        elif "version" in value:
+            airflow.append({"image": key, "version": value["version"]})
+        else:
+            continue
+    return {
+        "airflow": airflow
+    }
+
+
+@api_router.get("/images/versions")
+def get_components_versions():
+    handlers = [
+        get_docker_containers_images_versions,
+        get_airflow_images_versions,
+    ]
+    results = {}
+    for handler in handlers:
+        try:
+            result = handler()
+        except Exception as e:
+            logger.exception("Failed to get result for '{}' handler: {}?!", handler.__name__, str(e))
+            raise
+        if result:
+            results.update(result)
+    return results
 
 
 @root_router.get("/setup", response_class=HTMLResponse, tags=["setup"])

@@ -38,7 +38,7 @@ from install_handler import install_image_from_ecr, update_docker_compose_file, 
 import license_handler
 from sqlalchemy import create_engine
 
-from logs_handler import get_logs, CommandLogsHandler, get_file_log_handlers
+from logs_handler import get_logs, CommandLogsHandler, get_file_log_handlers, DockerRunCommandLogsHandler
 from rsa import build_key_client
 
 AIRFLOW_DOCKER_FILENAME = "airflow_docker.py"
@@ -342,6 +342,14 @@ def manage_docker_compose_actions(component_name: str = None, action: str = None
 def get_logs_():
     handlers = [
         CommandLogsHandler("docker_compose", "docker-compose logs --tail=100"),
+        DockerRunCommandLogsHandler(
+            "connector_api",
+            "connector-api:V2.6.0",
+            'bash -c "python lucidum_api.py build tenable_scan"',
+            remove=True,
+            volumes=["/usr/lucidum/connector-api/external:/tmp/app/external"],
+            network="lucidum_default"
+        ),
     ]
     file_log_handlers = get_file_log_handlers(
         "/usr/lucidum/airflow/logs/airflow_db_cleanup/*/{date:%Y-%m-%d}*/1.log", lookback_days=1

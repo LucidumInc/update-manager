@@ -425,6 +425,10 @@ def get_docker_containers_images_versions() -> dict:
 def get_airflow_images_versions() -> dict:
     lucidum_dir = get_lucidum_dir()
     airflow_settings_file_path = os.path.join(lucidum_dir, "airflow", "dags", "settings.yml")
+    if os.path.isfile(airflow_settings_file_path):
+        raise HTTPException(
+            status_code=404, detail=f"Airflow images version file not found: {airflow_settings_file_path}"
+        )
     with open(airflow_settings_file_path) as f:
         data = yaml.full_load(f)
     airflow = []

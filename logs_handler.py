@@ -4,6 +4,7 @@ import subprocess
 import uuid
 from datetime import datetime, timezone, timedelta
 from itertools import groupby
+from typing import Union
 
 import os
 import re
@@ -12,6 +13,7 @@ from loguru import logger
 from slugify import slugify
 
 from config_handler import get_lucidum_dir
+from docker_service import run_docker_container
 
 
 class BaseLogsHandler:
@@ -66,6 +68,45 @@ class CommandLogsHandler(BaseLogsHandler):
             stderr=subprocess.PIPE
         )
         return cp.stdout
+
+
+class DockerRunCommandLogsHandler(BaseLogsHandler):
+
+    def __init__(
+        self,
+        name: str,
+        image: str,
+        command: Union[str, list],
+        remove: bool = False,
+        volumes: Union[dict, list] = None,
+        network: str = None
+    ) -> None:
+        super().__init__()
+        self._name = name
+        self._image = image
+        self._command = command
+        self._remove = remove
+        self._volumes = volumes
+        self._network = network
+
+    @property
+    def name(self) -> str:
+        return f"{self._name}.log"
+
+    def get_logs(self):
+        docker_run_kwargs = {
+            "command": self._command,
+            "stdout": True,
+            "stderr": True,
+            "remove": self._remove,
+        }
+        if self._volumes:
+            docker_run_kwargs["volumes"] = self._volumes
+        if self._network:
+            docker_run_kwargs["network"] = self._network
+        out = run_docker_container(self._image, **docker_run_kwargs)
+        out = out.decode()
+        return out
 
 
 def get_file_log_handlers_old(pathname: str, date_parser, date_level: int):

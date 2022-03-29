@@ -43,7 +43,7 @@ class MySQLBackupRunner(BaseBackupRunner):
 
     def __call__(self):
         container = get_docker_container("mysql")
-        dump_cmd = "mysqldump --user={mysql_user} {mysql_db}"
+        dump_cmd = "mysqldump --no-tablespaces --user={mysql_user} {mysql_db}"
         db_config = get_db_config()
         logger.info("Dumping data for '{}' into {} file...", self.name, self.backup_file)
         result = container.exec_run(dump_cmd.format(**db_config), environment={"MYSQL_PWD": db_config["mysql_pwd"]})

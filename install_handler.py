@@ -260,14 +260,13 @@ def update_airflow_settings_file(components: list) -> None:
                 logger.warning("'{}' service not found in airflow settings file", service)
                 continue
             data["global"][service]["version"] = component["version"]
-        elif component["name"].startswith("connector"):
+        elif component["name"].startswith("connector-"):
             connector_type = component["name"].split("-", 1)[-1]
             if "connectors" not in data["global"]:
-                logger.warning("No connectors found in airflow settings file")
-                continue
+                logger.warning("No connectors found in airflow settings file. Creating...")
+                data["global"]["connectors"] = {}
             if connector_type not in data["global"]["connectors"]:
-                logger.warning("'{}' service not found in airflow settings file", component["name"])
-                continue
+                logger.warning("'{}' service not found in airflow settings file. Creating...", component["name"])
             data["global"]["connectors"][connector_type]["version"] = component["version"]
         else:
             if component["name"] not in data["global"]:

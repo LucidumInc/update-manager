@@ -55,7 +55,7 @@ class MySQLBackupRunner(BaseBackupRunner):
 
 
 class MongoBackupRunner(BaseBackupRunner):
-    backup_filename_format = "mongo_dump_{date}.gz"
+    backup_filename_format = "mongo_dump_{date}.tar.gz"
     container_dir = "/bitnami/mongodb"
     host_dir = "{}/mongo/db"
 
@@ -65,34 +65,53 @@ class MongoBackupRunner(BaseBackupRunner):
         file_handler,
         backup_dir: str = None,
         path: str = None,
-        collection: str = None,
+        include_collections: list = None,
         exclude_collections: list = None
     ) -> None:
         super().__init__(name, file_handler, backup_dir, path)
-        self.collection = collection
+        self.include_collections = include_collections
         self.exclude_collections = exclude_collections
 
     def __call__(self):
         container = get_docker_container("mongo")
-        filename = f"{str(uuid.uuid4())}_mongo_dump.gz"
-        dump_cmd = f"mongodump --username={{mongo_user}} --password={{mongo_pwd}} --authenticationDatabase=test_database --host={{mongo_host}} --port={{mongo_port}} --forceTableScan --archive={self.container_dir}/{filename} --gzip --db={{mongo_db}}"
-        if self.collection is not None:
-            dump_cmd = f"{dump_cmd} --collection={self.collection}"
+        dump_cmd = f"mongodump --username={{mongo_user}} --password={{mongo_pwd}} --authenticationDatabase=test_database --host={{mongo_host}} --port={{mongo_port}} --forceTableScan --gzip --db={{mongo_db}}"
         if self.exclude_collections:
             excludes = [f"--excludeCollection={collection}" for collection in self.exclude_collections]
             dump_cmd = f"{dump_cmd} {' '.join(excludes)}"
+        dump_cmds = []
+        if self.include_collections:
+            for collection in self.include_collections:
+                filename = f"{collection}_mongo_dump.gz"
+                dump_cmds.append(
+                    (filename, f"{dump_cmd} --collection={collection} --archive={self.container_dir}/{filename}")
+                )
+        else:
+            filename = "all_collections_mongo_dump.gz"
+            dump_cmds.append((filename, f"{dump_cmd} --archive={self.container_dir}/{filename}"))
+
+        lucidum_dir = get_lucidum_dir()
+        mongo_config = get_mongo_config()
+        dumped_filenames = []
+        backup_filepath = os.path.join(self.backup_dir, f"{str(uuid.uuid4())}_mongo_dump.tar.gz")
         logger.info("Dumping data for '{}' into {} file...", self.name, self.backup_file)
         try:
-            result = container.exec_run(dump_cmd.format(**get_mongo_config()))
-            if result.exit_code:
-                raise AppError(result.output.decode('utf-8'))
-            self.file_handler.copy_file(
-                os.path.join(self.host_dir.format(get_lucidum_dir()), filename), self.backup_file
-            )
+            for filename, dump_cmd_ in dump_cmds:
+                try:
+                    result = container.exec_run(dump_cmd_.format(**mongo_config))
+                    if result.exit_code:
+                        raise AppError(result.output.decode('utf-8'))
+                finally:
+                    dumped_filenames.append(filename)
+            dump_cmd_ = f"sudo tar -czvf {backup_filepath} --directory={self.host_dir.format(lucidum_dir)} {' '.join(dumped_filenames)}"
+            subprocess.run(dump_cmd_.split(), check=True)
+            self.file_handler.copy_file(backup_filepath, self.backup_file)
         finally:
-            rm_result = container.exec_run(f"rm {self.container_dir}/{filename}", user='root')
-            if rm_result.exit_code:
-                logger.warning(rm_result.output.decode('utf-8'))
+            for filename in dumped_filenames:
+                rm_result = container.exec_run(f"rm {self.container_dir}/{filename}", user='root')
+                if rm_result.exit_code:
+                    logger.warning(rm_result.output.decode('utf-8'))
+            if os.path.isfile(backup_filepath):
+                os.remove(backup_filepath)
         logger.info("'{}' backup data is saved to {}", self.name, self.backup_file)
         return self.backup_file
 
@@ -138,7 +157,7 @@ class LucidumDirBackupRunner(BaseBackupRunner):
 
 
 def get_backup_runner(
-    data_to_backup: str, filepath: str = None, collection: str = None, exclude_collections: list = None
+    data_to_backup: str, filepath: str = None, include_collections: list = None, exclude_collections: list = None
 ):
     backup_dir = get_backup_dir()
     file_handler = get_file_handler(filepath) if filepath is not None else LocalFileHandler()
@@ -150,7 +169,7 @@ def get_backup_runner(
             file_handler,
             backup_dir=backup_dir,
             path=filepath,
-            collection=collection,
+            include_collections=include_collections,
             exclude_collections=exclude_collections
         )
     elif data_to_backup == "lucidum":
@@ -162,9 +181,9 @@ def get_backup_runner(
 
 
 @logger.catch(onerror=lambda _: sys.exit(1))
-def backup(data: list, filepath: str, collection: str = None, exclude_collections: list = None):
+def backup(data: list, filepath: str, include_collections: list = None, exclude_collections: list = None):
     try:
-        backup_runners = [get_backup_runner(d, filepath, collection, exclude_collections) for d in data]
+        backup_runners = [get_backup_runner(d, filepath, include_collections, exclude_collections) for d in data]
         for backup_runner in backup_runners:
             backup_runner()
     except AppError as e:

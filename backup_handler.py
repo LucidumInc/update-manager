@@ -74,7 +74,7 @@ class MongoBackupRunner(BaseBackupRunner):
 
     def __call__(self):
         container = get_docker_container("mongo")
-        dump_cmd = f"mongodump --username={{mongo_user}} --password={{mongo_pwd}} --authenticationDatabase=test_database --host={{mongo_host}} --port={{mongo_port}} --forceTableScan --gzip --db={{mongo_db}}"
+        dump_cmd = "mongodump --username={mongo_user} --password={mongo_pwd} --authenticationDatabase=test_database --host={mongo_host} --port={mongo_port} --forceTableScan --gzip --db={mongo_db}"
         if self.exclude_collections:
             excludes = [f"--excludeCollection={collection}" for collection in self.exclude_collections]
             dump_cmd = f"{dump_cmd} {' '.join(excludes)}"

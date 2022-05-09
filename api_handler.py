@@ -13,6 +13,7 @@ import requests
 from typing import Optional, List
 
 import shutil
+import yaml
 from pymongo import MongoClient
 from urllib.parse import quote_plus
 
@@ -29,7 +30,7 @@ from config_handler import get_lucidum_dir, get_airflow_db_config, get_images, g
     get_key_dir_config, get_ecr_url, get_ecr_client, get_aws_config, get_ecr_base, get_source_mapping_file_path
 from docker_service import start_docker_compose, stop_docker_compose, list_docker_compose_containers, \
     start_docker_compose_service, stop_docker_compose_service, restart_docker_compose, restart_docker_compose_service, \
-    get_docker_compose_logs
+    get_docker_compose_logs, run_docker_container
 from exceptions import AppError
 from healthcheck_handler import get_health_information
 from install_handler import install_image_from_ecr, update_docker_compose_file, update_airflow_settings_file
@@ -381,6 +382,46 @@ def get_client_keyfile(
     finally:
         if os.path.isdir(key_dir):
             shutil.rmtree(key_dir)
+
+
+def get_connector_version(connector_type: str) -> Optional[str]:
+    lucidum_dir = get_lucidum_dir()
+    airflow_settings_file_path = os.path.join(lucidum_dir, "airflow", "dags", "settings.yml")
+    if not os.path.isfile(airflow_settings_file_path):
+        logger.warning("'{}' file does not exist", airflow_settings_file_path)
+        return
+    with open(airflow_settings_file_path) as f:
+        data = yaml.full_load(f)
+    connector_version = None
+    if "global" in data and "connectors" in data["global"]:
+        connectors = data["global"]["connectors"]
+        if connector_type not in connectors:
+            logger.warning("Connector not found within airflow settings: {}", connector_type)
+            return
+        if "version" not in connectors[connector_type]:
+            logger.warning("Connector version not found within airflow settings: {}", connector_type)
+            return
+        connector_version = connectors[connector_type]["version"]
+    else:
+        logger.warning("'global' or 'connectors' keys are not found within airflow settings")
+
+    return connector_version
+
+
+@api_router.get("/connector/{connector_type}/test")
+def run_connector_test_command(connector_type: str, profile_db_id: str, trace_id: str):
+    connector_version = get_connector_version(connector_type)
+    if not connector_version:
+        return JSONResponse(content={"status": "FAILED", "output": "can't find image version"}, status_code=404)
+    image = f"connector-{connector_type}:{connector_version}"
+    command = f'bash -c "python lucidum_{connector_type}.py test {profile_db_id}:{trace_id}"'
+    out = run_docker_container(
+        image, stdout=True, stderr=True, remove=True, network="lucidum_default", command=command
+    )
+    return {
+        "status": "OK",
+        "output": out.decode(),
+    }
 
 
 @root_router.get("/setup", response_class=HTMLResponse, tags=["setup"])

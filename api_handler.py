@@ -408,13 +408,19 @@ def get_connector_version(connector_type: str) -> Optional[str]:
     return connector_version
 
 
-@api_router.get("/connector/{connector_type}/test")
-def run_connector_test_command(connector_type: str, profile_db_id: str, trace_id: str):
+@api_router.get("/connector/{connector_type}/test/{technology}")
+def run_connector_test_command(connector_type: str, technology: str, profile_db_id: str, trace_id: str):
+    """Run connector test command.
+        :param connector_type (str): api, gcp, aws, azure
+        :param technology (str): ad_ldap, okta
+        :param profile_db_id (str): ui connector config db id
+        :param trace_id (str): trace_id for this API, unique for each API 
+        """
     connector_version = get_connector_version(connector_type)
     if not connector_version:
         return JSONResponse(content={"status": "FAILED", "output": "can't find image version"}, status_code=404)
     image = f"connector-{connector_type}:{connector_version}"
-    command = f'bash -c "python lucidum_{connector_type}.py test {profile_db_id}:{trace_id}"'
+    command = f'bash -c "python lucidum_{connector_type}.py test {technology} {profile_db_id}:{trace_id}"'
     out = run_docker_container(
         image, stdout=True, stderr=True, remove=True, network="lucidum_default", command=command
     )

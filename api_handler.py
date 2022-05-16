@@ -417,6 +417,20 @@ def get_connector_version(connector_type: str) -> Optional[str]:
 
     return connector_version
 
+def get_local_connectors():
+    result = []
+    lucidum_dir = get_lucidum_dir()
+    airflow_settings_file_path = os.path.join(lucidum_dir, "airflow", "dags", "settings.yml")
+    if not os.path.isfile(airflow_settings_file_path):
+        logger.warning("'{}' file does not exist", airflow_settings_file_path)
+        return result
+    with open(airflow_settings_file_path) as f:
+        data = yaml.full_load(f)
+        if "global" in data and "connectors" in data["global"]:
+            connectors = data["global"]["connectors"]
+            for connector in connectors:
+                result.append({"type": connector, "version": connectors[connector]['version']})
+    return result
 
 @api_router.get("/connector/{connector_type}/test/{technology}")
 def run_connector_test_command(connector_type: str, technology: str, profile_db_id: str, trace_id: str):
@@ -439,6 +453,22 @@ def run_connector_test_command(connector_type: str, technology: str, profile_db_
         "output": out.decode(),
     }
 
+@api_router.get("/connector/config-to-db")
+def run_connector_config_to_db():
+    connectors = get_local_connectors()
+    result = []
+    for connector in connectors:
+        image = f"connector-{connector['type']}:{connector['version']}"
+        command = f'bash -c "python lucidum_{connector["type"]}.py config-to-db"'
+        logger.info(f"run docker: {image} with command: {command}")
+        out = run_docker_container(
+            image, stdout=True, stderr=True, remove=True, network="lucidum_default", command=command
+        )
+        result.append({
+            "status": "OK",
+            "output": out.decode(),
+        })
+    return result
 
 @root_router.get("/setup", response_class=HTMLResponse, tags=["setup"])
 def get_setup(request: Request):

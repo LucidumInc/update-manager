@@ -38,6 +38,7 @@ import license_handler
 from sqlalchemy import create_engine
 
 from rsa import build_key_client
+from service_status_handler import get_services_statuses
 
 AIRFLOW_DOCKER_FILENAME = "airflow_docker.py"
 
@@ -358,6 +359,15 @@ def get_connector_mapping():
                 result.append({"connector_name": item['platform'], "type": item['type'], "service": item['technology']})
     result = [i for n, i in enumerate(result) if i not in result[n + 1:]]
     return result
+
+
+@api_router.get("/services/status")
+def get_services_statuses_():
+    statuses = get_services_statuses()
+    return {
+        "data": statuses,
+    }
+
 
 @api_router.get("/tunnel/client/keys")
 def get_client_keyfile(

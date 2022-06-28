@@ -429,7 +429,7 @@ def run_connector_test_command(connector_type: str, technology: str, profile_db_
         :param connector_type (str): api, gcp, aws, azure
         :param technology (str): ad_ldap, okta
         :param profile_db_id (str): ui connector config db id
-        :param trace_id (str): trace_id for this API, unique for each API 
+        :param trace_id (str): trace_id for this API, unique for each API
         """
     connector_version = get_connector_version(connector_type)
     if not connector_version:

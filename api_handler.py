@@ -14,12 +14,13 @@ from typing import Optional, List
 
 import shutil
 import yaml
+from openvpn_status import parse_status
 from pymongo import MongoClient
 from urllib.parse import quote_plus
 
 import uvicorn
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Query
-from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
+from fastapi.responses import JSONResponse, HTMLResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from loguru import logger
@@ -30,7 +31,7 @@ from config_handler import get_lucidum_dir, get_airflow_db_config, get_images, g
     get_key_dir_config, get_ecr_url, get_ecr_client, get_aws_config, get_ecr_base, get_source_mapping_file_path
 from docker_service import start_docker_compose, stop_docker_compose, list_docker_compose_containers, \
     start_docker_compose_service, stop_docker_compose_service, restart_docker_compose, restart_docker_compose_service, \
-    get_docker_compose_logs, run_docker_container
+    get_docker_compose_logs, run_docker_container, get_docker_container
 from exceptions import AppError
 from healthcheck_handler import get_health_information
 from install_handler import install_image_from_ecr, update_docker_compose_file, update_airflow_settings_file
@@ -164,6 +165,10 @@ class UpdateComponentVersionModel(BaseModel):
         options = ["docker-compose", "airflow"]
         assert v in options, f"'{v}' should be one of {options}"
         return v
+
+
+class TunnelClientModel(BaseModel):
+    client_name: str
 
 
 @api_router.get("/healthcheck", tags=["health"])
@@ -440,6 +445,54 @@ def run_connector_test_command(connector_type: str, technology: str, profile_db_
     }
 
 
+@api_router.post("/tunnel/clients")
+def generate_client_configuration(tunnel_client: TunnelClientModel):
+    client_name = tunnel_client.client_name
+    container = get_docker_container("tunnel")
+    create_client_cmd = f"easyrsa build-client-full {client_name} nopass"
+    create_result = container.exec_run(create_client_cmd)
+    if create_result.exit_code:
+        error = create_result.output.decode()
+        logger.error("Failed to create client configuration: {}?!", error)
+        raise HTTPException(status_code=500, detail=error)
+    export_client_config_cmd = f"ovpn_getclient {client_name}"
+    export_result = container.exec_run(export_client_config_cmd)
+    if export_result.exit_code:
+        error = export_result.output.decode()
+        logger.error("Failed to export client configuration: {}?!", error)
+        raise HTTPException(status_code=500, detail=error)
+    headers = {"Content-Disposition": f"attachment; filename={client_name}.conf"}
+    return Response(content=export_result.output, headers=headers, media_type="text/plain")
+
+
+@api_router.get("/tunnel/clients/{client_name}")
+def get_client(client_name: str):
+    container = get_docker_container("tunnel")
+    status_cmd = "cat /tmp/openvpn-status.log"
+    status_result = container.exec_run(status_cmd)
+    if status_result.exit_code:
+        error = status_result.output.decode()
+        logger.error("Failed to get client status from openvpn-status.log: {}?!", error)
+        raise HTTPException(status_code=500, detail=error)
+    status = parse_status(status_result.output)
+    client = None
+    for address, client_ in status.client_list.items():
+        if client_.common_name == client_name:
+            client = {
+                "common_name": client_.common_name,
+                "real_address": address,
+                "bytes_received": client_.bytes_received,
+                "bytes_sent": client_.bytes_sent,
+                "connected_since": client_.connected_since.isoformat(),
+            }
+            break
+
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    return client
+
+
 @root_router.get("/setup", response_class=HTMLResponse, tags=["setup"])
 def get_setup(request: Request):
     return templates.TemplateResponse("index.html.jinja2", {"request": request})
@@ -481,4 +534,4 @@ def create_app() -> FastAPI:
 app = create_app()
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0")
+    uvicorn.run(app, host="0.0.0.0", port=8080)

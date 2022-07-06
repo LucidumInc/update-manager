@@ -493,6 +493,30 @@ def get_client(client_name: str):
     return client
 
 
+@api_router.get("/tunnel/clients")
+def get_clients():
+    container = get_docker_container("tunnel")
+    status_cmd = "cat /tmp/openvpn-status.log"
+    status_result = container.exec_run(status_cmd)
+    if status_result.exit_code:
+        error = status_result.output.decode()
+        logger.error("Failed to get clients from openvpn-status.log: {}?!", error)
+        raise HTTPException(status_code=500, detail=error)
+    status = parse_status(status_result.output)
+    clients = []
+    for address, client_ in status.client_list.items():
+        clients.append(
+            {
+                "common_name": client_.common_name,
+                "real_address": address,
+                "bytes_received": client_.bytes_received,
+                "bytes_sent": client_.bytes_sent,
+                "connected_since": client_.connected_since.isoformat(),
+            }
+        )
+    return {"data": clients,}
+
+
 @root_router.get("/setup", response_class=HTMLResponse, tags=["setup"])
 def get_setup(request: Request):
     return templates.TemplateResponse("index.html.jinja2", {"request": request})

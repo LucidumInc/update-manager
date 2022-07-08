@@ -431,6 +431,8 @@ def run_connector_test_command(connector_type: str, technology: str, profile_db_
         return JSONResponse(content={"status": "FAILED", "output": "can't find image version"}, status_code=404)
     image = f"connector-{connector_type}:{connector_version}"
     command = f'bash -c "python lucidum_{connector_type}.py test {technology} {profile_db_id}:{trace_id}"'
+    if connector_type != 'api':
+        command = f'bash -c "python lucidum_{connector_type}.py test {profile_db_id}:{trace_id}"'
     out = run_docker_container(
         image, stdout=True, stderr=True, remove=True, network="lucidum_default", command=command
     )

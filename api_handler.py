@@ -475,20 +475,20 @@ def get_client(client_name: str):
         logger.error("Failed to get client status from openvpn-status.log: {}?!", error)
         raise HTTPException(status_code=500, detail=error)
     status = parse_status(status_result.output)
-    client = None
-    for address, client_ in status.client_list.items():
-        if client_.common_name == client_name:
-            client = {
-                "common_name": client_.common_name,
-                "real_address": address,
-                "bytes_received": client_.bytes_received,
-                "bytes_sent": client_.bytes_sent,
-                "connected_since": client_.connected_since.isoformat(),
-            }
-            break
-
-    if not client:
+    client_list = {client_.common_name: client_ for client_ in status.client_list.values()}
+    if client_name not in client_list:
         raise HTTPException(status_code=404, detail="Client not found")
+    routing_table = {client_.common_name: client_ for client_ in status.routing_table.values()}
+    client_ = client_list[client_name]
+    client = {
+        "common_name": client_.common_name,
+        "real_address": str(client_.real_address),
+        "bytes_received": client_.bytes_received,
+        "bytes_sent": client_.bytes_sent,
+        "connected_since": client_.connected_since.isoformat(),
+    }
+    if client_name in routing_table:
+        client["virtual_address"] = str(routing_table[client_name].virtual_address)
 
     return client
 
@@ -503,18 +503,20 @@ def get_clients():
         logger.error("Failed to get clients from openvpn-status.log: {}?!", error)
         raise HTTPException(status_code=500, detail=error)
     status = parse_status(status_result.output)
+    routing_table = {client_.common_name: client_ for client_ in status.routing_table.values()}
     clients = []
-    for address, client_ in status.client_list.items():
-        clients.append(
-            {
-                "common_name": client_.common_name,
-                "real_address": address,
-                "bytes_received": client_.bytes_received,
-                "bytes_sent": client_.bytes_sent,
-                "connected_since": client_.connected_since.isoformat(),
-            }
-        )
-    return {"data": clients,}
+    for client_ in status.client_list.values():
+        client = {
+            "common_name": client_.common_name,
+            "real_address": str(client_.real_address),
+            "bytes_received": client_.bytes_received,
+            "bytes_sent": client_.bytes_sent,
+            "connected_since": client_.connected_since.isoformat(),
+        }
+        if client_.common_name in routing_table:
+            client["virtual_address"] = str(routing_table[client_.common_name].virtual_address)
+        clients.append(client)
+    return {"clients": clients,}
 
 
 @root_router.get("/setup", response_class=HTMLResponse, tags=["setup"])

@@ -507,14 +507,14 @@ def get_clients():
     clients = []
     for client_ in status.client_list.values():
         client = {
-            "common_name": client_.common_name,
+            "name": client_.common_name,
             "real_address": str(client_.real_address),
             "bytes_received": client_.bytes_received,
             "bytes_sent": client_.bytes_sent,
             "connected_since": client_.connected_since.isoformat(),
         }
         if client_.common_name in routing_table:
-            client["virtual_address"] = str(routing_table[client_.common_name].virtual_address)
+            client["proxy_address"] = str(routing_table[client_.common_name].virtual_address)
         clients.append(client)
     return {"clients": clients,}
 

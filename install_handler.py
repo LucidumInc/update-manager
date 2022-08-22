@@ -429,3 +429,28 @@ def _check_path(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
+def get_image_and_version():
+    lucidum_dir = get_lucidum_dir()
+    result = []
+    docker_compose_file_path = os.path.join(lucidum_dir, "docker-compose.yml")
+    if not os.path.isfile(docker_compose_file_path):
+        logger.warning("'{}' file does not exist", docker_compose_file_path)
+        return result
+    with open(docker_compose_file_path) as f:
+        data = yaml.full_load(f)
+        logger.info(data)
+        for service, value in data.get('services', {}).items():
+            result.append(value['image'])
+
+    airflow_settings_file_path = os.path.join(lucidum_dir, "airflow", "dags", "settings.yml")
+    if not os.path.isfile(airflow_settings_file_path):
+        logger.warning("'{}' file does not exist", airflow_settings_file_path)
+        return result
+    with open(airflow_settings_file_path) as f:
+        data = yaml.full_load(f)
+        logger.info(data)
+        result.append(f"action-manager:{data['global']['action-manager']['version']}")
+        result.append(f"python/ml:{data['global']['merger']['version']}")
+        for type, value in data['global']['connectors'].items():
+            result.append(f"connector-{type}:{value['version']}")
+    return [*set(result)]

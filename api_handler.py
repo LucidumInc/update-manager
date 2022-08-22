@@ -34,7 +34,7 @@ from docker_service import start_docker_compose, stop_docker_compose, list_docke
     get_docker_compose_logs, run_docker_container, get_docker_container
 from exceptions import AppError
 from healthcheck_handler import get_health_information
-from install_handler import install_image_from_ecr, update_docker_compose_file, update_airflow_settings_file
+from install_handler import install_image_from_ecr, update_docker_compose_file, update_airflow_settings_file, get_image_and_version
 import license_handler
 from sqlalchemy import create_engine
 
@@ -477,6 +477,9 @@ def run_connector_config_to_db():
         })
     return result
 
+@api_router.get("/images")
+def get_docker_image_and_version():
+    return get_image_and_version()
 
 @api_router.post("/tunnel/clients")
 def generate_client_configuration(tunnel_client: TunnelClientModel):

@@ -40,6 +40,8 @@ from sqlalchemy import create_engine
 
 from rsa import build_key_client
 from service_status_handler import get_services_statuses
+import io
+from dateutil import parser
 
 AIRFLOW_DOCKER_FILENAME = "airflow_docker.py"
 
@@ -528,6 +530,20 @@ def get_client(client_name: str):
 
     return client
 
+def get_tunnel_client_dict():
+    container = get_docker_container("tunnel")
+    client_list_cmd = "ovpn_listclients"
+    client_list_result = container.exec_run(client_list_cmd)
+    client_list_result.output
+    string = client_list_result.output.decode('utf-8')
+    buf = io.StringIO(string)
+    result = buf.readlines()
+    clients = {}
+    for record in result:
+        if record.split(',')[0] != 'name':
+            items = record.split(',')
+            clients[items[0]] = parser.parse(items[2]).isoformat()
+    return clients
 
 @api_router.get("/tunnel/clients")
 def get_clients():
@@ -540,6 +556,7 @@ def get_clients():
         raise HTTPException(status_code=500, detail=error)
     status = parse_status(status_result.output)
     routing_table = {client_.common_name: client_ for client_ in status.routing_table.values()}
+    tunnel_client_dict = get_tunnel_client_dict()
     clients = []
     for client_ in status.client_list.values():
         client = {
@@ -548,12 +565,18 @@ def get_clients():
             "bytes_received": client_.bytes_received,
             "bytes_sent": client_.bytes_sent,
             "connected_since": client_.connected_since.isoformat(),
+            "status": "connected"
         }
         if client_.common_name in routing_table:
             client["proxy_address"] = str(routing_table[client_.common_name].virtual_address)
+        if client['name'] in tunnel_client_dict:
+            client['config_expire_date'] = tunnel_client_dict[client['name']]
         clients.append(client)
-    return {"clients": clients,}
+    for name, expire_date in tunnel_client_dict.items():
+        if name not in routing_table:
+            clients.append({'name': name, 'status': 'disconnected', 'config_expire_date': expire_date})
 
+    return {"clients": clients,}
 
 @root_router.get("/setup", response_class=HTMLResponse, tags=["setup"])
 def get_setup(request: Request):

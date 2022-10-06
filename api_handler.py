@@ -581,7 +581,7 @@ def get_clients():
     return {"clients": clients,}
 
 
-def filter_connector_metrics(from_: str = None, to_: str = None):
+def filter_connector_metrics(from_: str = Query(None, alias='from'), to_: str = Query(None, alias='to')):
     if not from_:
         raise AppError('Query parameter "from_" is required')
     try:

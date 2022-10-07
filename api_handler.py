@@ -597,7 +597,7 @@ def filter_connector_metrics(from_: str = Query(None, alias='from'), to_: str = 
     return filters
 
 
-@root_router.get("/connector/metrics", tags=['metrics'])
+@api_router.get("/connector/metrics", tags=['metrics'])
 def get_connector_metric(filters: dict = Depends(filter_connector_metrics)):
     db_client = MongoDBClient()
     collections = db_client.client[db_client._mongo_db]['metrics'].find(filters)

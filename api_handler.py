@@ -11,6 +11,7 @@ import logging
 import importlib
 import requests
 from typing import Optional, List
+from bson.json_util import dumps
 
 import shutil
 import yaml
@@ -19,7 +20,7 @@ from pymongo import MongoClient
 from urllib.parse import quote_plus
 
 import uvicorn
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Query
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Query, Depends
 from fastapi.responses import JSONResponse, HTMLResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -49,6 +50,10 @@ root_router = APIRouter()
 api_router = APIRouter(prefix="/update-manager/api")
 
 templates = Jinja2Templates(directory="templates")
+
+import pydantic
+from bson.objectid import ObjectId
+pydantic.json.ENCODERS_BY_TYPE[ObjectId]=str
 
 class MongoDBClient:
     _mongo_db = "test_database"
@@ -577,6 +582,30 @@ def get_clients():
             clients.append({'name': name, 'status': 'disconnected', 'config_expire_date': expire_date})
 
     return {"clients": clients,}
+
+
+def filter_connector_metrics(from_: str = Query(None, alias='from'), to_: str = Query(None, alias='to')):
+    if not from_:
+        raise AppError('Query parameter "from_" is required')
+    try:
+        datetime_from = datetime.strptime(from_, '%Y-%m-%d')
+        filters = {'_utc': {"$gte": datetime_from}}
+        if to_:
+            datetime_to = datetime.strptime(to_, '%Y-%m-%d')
+            if datetime_from > datetime_to:
+                raise AppError('query parameter "from" should be less or equal to query parameter "to"')
+            filters['_utc'].update({'$lt': datetime_to})
+    except ValueError:
+        raise ValueError("Incorrect data format, should be YYYY-MM-DD")
+    return filters
+
+
+@api_router.get("/connector/metrics", tags=['metrics'])
+def get_connector_metric(filters: dict = Depends(filter_connector_metrics)):
+    db_client = MongoDBClient()
+    collections = db_client.client[db_client._mongo_db]['metrics'].find(filters)
+    return {"data": list(collections)}
+
 
 @root_router.get("/setup", response_class=HTMLResponse, tags=["setup"])
 def get_setup(request: Request):

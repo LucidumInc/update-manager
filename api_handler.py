@@ -51,6 +51,9 @@ api_router = APIRouter(prefix="/update-manager/api")
 
 templates = Jinja2Templates(directory="templates")
 
+import pydantic
+from bson.objectid import ObjectId
+pydantic.json.ENCODERS_BY_TYPE[ObjectId]=str
 
 class MongoDBClient:
     _mongo_db = "test_database"
@@ -601,7 +604,7 @@ def filter_connector_metrics(from_: str = Query(None, alias='from'), to_: str = 
 def get_connector_metric(filters: dict = Depends(filter_connector_metrics)):
     db_client = MongoDBClient()
     collections = db_client.client[db_client._mongo_db]['metrics'].find(filters)
-    return dumps(list(collections))
+    return {"data": list(collections)}
 
 
 @root_router.get("/setup", response_class=HTMLResponse, tags=["setup"])

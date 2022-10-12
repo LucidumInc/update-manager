@@ -442,11 +442,16 @@ def run_connector_test_command(connector_type: str, technology: str, profile_db_
     if not connector_version:
         return JSONResponse(content={"status": "FAILED", "output": "can't find image version"}, status_code=404)
     image = f"connector-{connector_type}:{connector_version}"
-    command = f'bash -c "python lucidum_{connector_type}.py test {technology} {profile_db_id}:{trace_id}"'
-    if connector_type != 'api':
+    # api and sdk connections has technology
+    command = f'bash -c "python lucidum_{connector_type}.py test {technology} {profile_db_id}:{trace_id}"'    
+    if connector_type not in ['api', 'sdk']: # cloud connectors default test all services
         command = f'bash -c "python lucidum_{connector_type}.py test {profile_db_id}:{trace_id}"'
+    # only connector-sdk need docker privilege to access host network
+    docker_privileged = False
+    if connector_type in ['sdk']:
+        docker_privileged = True
     out = run_docker_container(
-        image, stdout=True, stderr=True, remove=True, network="lucidum_default", command=command
+        image, stdout=True, stderr=True, remove=True, network="lucidum_default", privileged=docker_privileged, command=command
     )
     return {
         "status": "OK",

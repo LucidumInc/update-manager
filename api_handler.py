@@ -496,13 +496,17 @@ def get_docker_image_and_version():
 @api_router.post("/tunnel/clients")
 def generate_client_configuration(tunnel_client: TunnelClientModel):
     client_name = tunnel_client.client_name
+    client_name_list = get_tunnel_client_dict().keys()
     container = get_docker_container("tunnel")
-    create_client_cmd = f"easyrsa build-client-full {client_name} nopass"
-    create_result = container.exec_run(create_client_cmd)
-    if create_result.exit_code:
-        error = create_result.output.decode()
-        logger.error("Failed to create client configuration: {}?!", error)
-        raise HTTPException(status_code=500, detail=error)
+    # create tunnel client with client_name
+    if client_name not in client_name_list:
+        create_client_cmd = f"easyrsa build-client-full {client_name} nopass"
+        create_result = container.exec_run(create_client_cmd)
+        if create_result.exit_code:
+            error = create_result.output.decode()
+            logger.error("Failed to create client configuration: {}?!", error)
+            raise HTTPException(status_code=500, detail=error)
+    # export tunenel client config file
     export_client_config_cmd = f"ovpn_getclient {client_name}"
     export_result = container.exec_run(export_client_config_cmd)
     if export_result.exit_code:

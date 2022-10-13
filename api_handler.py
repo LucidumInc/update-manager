@@ -506,7 +506,7 @@ def generate_client_configuration(tunnel_client: TunnelClientModel):
             error = create_result.output.decode()
             logger.error("Failed to create client configuration: {}?!", error)
             raise HTTPException(status_code=500, detail=error)
-    # export tunenel client config file
+    # export tunnel client config file
     export_client_config_cmd = f"ovpn_getclient {client_name}"
     export_result = container.exec_run(export_client_config_cmd)
     if export_result.exit_code:
@@ -515,34 +515,6 @@ def generate_client_configuration(tunnel_client: TunnelClientModel):
         raise HTTPException(status_code=500, detail=error)
     headers = {"Content-Disposition": f"attachment; filename={client_name}.conf"}
     return Response(content=export_result.output, headers=headers, media_type="text/plain")
-
-
-@api_router.get("/tunnel/clients/{client_name}")
-def get_client(client_name: str):
-    container = get_docker_container("tunnel")
-    status_cmd = "cat /tmp/openvpn-status.log"
-    status_result = container.exec_run(status_cmd)
-    if status_result.exit_code:
-        error = status_result.output.decode()
-        logger.error("Failed to get client status from openvpn-status.log: {}?!", error)
-        raise HTTPException(status_code=500, detail=error)
-    status = parse_status(status_result.output)
-    client_list = {client_.common_name: client_ for client_ in status.client_list.values()}
-    if client_name not in client_list:
-        raise HTTPException(status_code=404, detail="Client not found")
-    routing_table = {client_.common_name: client_ for client_ in status.routing_table.values()}
-    client_ = client_list[client_name]
-    client = {
-        "common_name": client_.common_name,
-        "real_address": str(client_.real_address),
-        "bytes_received": client_.bytes_received,
-        "bytes_sent": client_.bytes_sent,
-        "connected_since": client_.connected_since.isoformat(),
-    }
-    if client_name in routing_table:
-        client["virtual_address"] = str(routing_table[client_name].virtual_address)
-
-    return client
 
 def get_tunnel_client_dict():
     container = get_docker_container("tunnel")

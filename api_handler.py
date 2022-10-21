@@ -587,6 +587,22 @@ def get_connector_metric(filters: dict = Depends(filter_connector_metrics)):
     collections = db_client.client[db_client._mongo_db]['metrics'].find(filters)
     return {"data": list(collections)}
 
+def get_fqdn():
+    CONFIG_PATH = "/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent.json"
+    with open(CONFIG_PATH) as f:
+        config_json = json.loads(f.read())
+        return config_json['metrics']['append_dimensions']['FQDN']
+
+@api_router.get("/data/values", tags=['dataValues'])
+def get_data_values(collection, field):
+    db_client = MongoDBClient()
+    records = db_client.client[db_client._mongo_db][collection].distinct(field)
+    fqdn = get_fqdn()
+    result = {"customer_name": fqdn.replace(".lucidum.cloud", ""), "values": []}
+    for record in records:
+        if record:
+            result["values"].append(record)
+    return result
 
 @root_router.get("/setup", response_class=HTMLResponse, tags=["setup"])
 def get_setup(request: Request):

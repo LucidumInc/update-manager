@@ -380,32 +380,6 @@ def get_services_statuses_():
         "data": statuses,
     }
 
-
-@api_router.get("/tunnel/client/keys")
-def get_client_keyfile(
-    name: str = Query(...),
-    ip: Optional[str] = Query(None, regex=r"^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$")
-):
-    if ip is None:
-        ip = get_public_ip_address()
-    key_dir = f"{name}_{str(uuid.uuid4())}"
-    try:
-        ca_key_dir = get_key_dir_config()
-        build_key_client(
-            name, key_dir=key_dir,
-            ca_key_filepath=os.path.join(ca_key_dir, "ca.key"),
-            ca_crt_filepath=os.path.join(ca_key_dir, "ca.crt")
-        )
-        template = templates.get_template("client.conf.jinja2")
-        template.stream(ip=ip, client_name=name).dump(os.path.join(key_dir, "client.conf"))
-        filepath = f"{key_dir}.tar.gz"
-        archive_directory(filepath, key_dir)
-        return FileResponse(filepath, filename="conf.tar.gz", background=BackgroundTask(delete_file, filepath))
-    finally:
-        if os.path.isdir(key_dir):
-            shutil.rmtree(key_dir)
-
-
 def get_connector_version(connector_type: str) -> Optional[str]:
     lucidum_dir = get_lucidum_dir()
     airflow_settings_file_path = os.path.join(lucidum_dir, "airflow", "dags", "settings.yml")
@@ -596,12 +570,18 @@ def get_fqdn():
 @api_router.get("/data/values", tags=['dataValues'])
 def get_data_values(collection, field):
     db_client = MongoDBClient()
-    records = db_client.client[db_client._mongo_db][collection].distinct(field)
+    records = db_client.client[db_client._mongo_db][collection].aggregate([{'$sortByCount': f'${field}'}])
     fqdn = get_fqdn()
-    result = {"customer_name": fqdn.replace(".lucidum.cloud", ""), "values": []}
+    result = {"customer_name": fqdn.replace(".lucidum.cloud", ""), "values": {}}
     for record in records:
-        if record:
-            result["values"].append(record)
+        if record['_id']:
+            # record['_id'] could be list or string
+            if isinstance(record['_id'], list):
+                for value in record['_id']:
+                    if value:
+                        result["values"][value] = result["values"].get(value, 0) + record['count']
+            else:
+                result["values"][record['_id']] = result["values"].get(record['_id'], 0) + record['count']
     return result
 
 @root_router.get("/setup", response_class=HTMLResponse, tags=["setup"])

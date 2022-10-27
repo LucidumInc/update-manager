@@ -300,7 +300,9 @@ class ECRComponentsInfoCollector(BaseInfoCollector):
                     "cpu": f"{cpu_percent:.2f}%",
                     "memory": bytes2human(stats["memory_stats"]["usage"]),
                     "pid": container.attrs["State"]["Pid"],
-                    "status": f"Up {diff.hours} hours"
+                    "status": f"Up {diff.hours} hours",
+                    "up_time_in_hours": diff.hours,
+                    "cmd": ' '.join(container.attrs['Config']['Cmd']) if container.attrs['Config']['Cmd'] else ''
                 })
             if not containers:
                 result["status"] = "FAILED"

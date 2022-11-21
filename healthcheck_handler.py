@@ -2,7 +2,7 @@ import grp
 import platform
 import pwd
 import subprocess
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 import boto3
 import distro
@@ -292,7 +292,8 @@ class ECRComponentsInfoCollector(BaseInfoCollector):
                 stats = get_container_stats(container.id, stream=False)
                 cpu_percent = self._calculate_cpu_usage_percentage(stats["cpu_stats"], stats["precpu_stats"])
                 started_at = dateutil_parser.isoparse(container.attrs["State"]["StartedAt"])
-                diff = relativedelta.relativedelta(datetime.now(tz=timezone.utc), started_at)
+                diff = datetime.now(tz=timezone.utc) - started_at
+                diff_in_hours = round(diff / timedelta(hours=1), 2)
                 containers.append({
                     "name": container.name,
                     "image": container.image.tags[0] if container.image.tags else "",
@@ -300,8 +301,8 @@ class ECRComponentsInfoCollector(BaseInfoCollector):
                     "cpu": f"{cpu_percent:.2f}%",
                     "memory": bytes2human(stats["memory_stats"]["usage"]),
                     "pid": container.attrs["State"]["Pid"],
-                    "status": f"Up {diff.hours} hours",
-                    "up_time_in_hours": diff.hours,
+                    "status": f"Up {diff_in_hours} hours",
+                    "up_time_in_hours": diff_in_hours,
                     "cmd": ' '.join(container.attrs['Config']['Cmd']) if container.attrs['Config']['Cmd'] else ''
                 })
             if not containers:

@@ -108,10 +108,9 @@ def backup(data: tuple, filepath: str, include_collection: str = None, exclude_c
 
 
 @cli.command(name="migrate")
-@click.option("--data", "-d", multiple=True, default=["dashboard"], type=click.Choice(['dashboard', 'query']))
-def upgrade_query(data: tuple):
+def upgrade_query():
     from upgrade_query_handler import run
-    run(list(data))
+    run()
 
 
 @cli.command()

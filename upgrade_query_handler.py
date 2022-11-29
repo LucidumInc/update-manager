@@ -21,24 +21,18 @@ class QueryUpgradeRunner:
         try:
             result = container.exec_run(import_cmd.format(**get_mongo_config()))
             if result.exit_code:
-                raise AppError(result.output.decode('utf-8'))
+                logger.error(result.output.decode('utf-8'))
         finally:
             rm_result = container.exec_run(f"rm {container_filepath}", user='root')
             if rm_result.exit_code:
                 logger.warning(rm_result.output.decode('utf-8'))
 
-    def __call__(self, data):
-        for data_category in data:
-            if data_category == 'dashboard':
-                self.import_json('postReport.json', 'biQuery_lucidum_report', drop=True)
-                self.import_json('postDashboard.json', 'biQuery_lucidum_dashboard', drop=True)
-                self.import_json('postDynamicFieldDef.json', 'local_dynamic_field_definition', override=True)
-                self.import_json('postDynamicFieldDisplay.json', 'field_display_local', override=True)
-            if data_category == 'query':
-                self.import_json('postSavedQuery.json', 'Query_Builder', override=True)
-                self.import_json('postDynamicFieldDef.json', 'local_dynamic_field_definition', override=True)
-                self.import_json('postDynamicFieldDisplay.json', 'field_display_local', override=True)
-
+    def __call__(self):
+        self.import_json('postReport.json', 'biQuery_lucidum_report', drop=True)
+        self.import_json('postDashboard.json', 'biQuery_lucidum_dashboard', drop=True)
+        self.import_json('postDynamicFieldDef.json', 'local_dynamic_field_definition', override=True)
+        self.import_json('postDynamicFieldDisplay.json', 'field_display_local', override=True)
+        self.import_json('postSavedQuery.json', 'Query_Builder', override=True)
 
 
 def _get_upgrade_runner(db):
@@ -47,6 +41,6 @@ def _get_upgrade_runner(db):
 
 
 @logger.catch(onerror=lambda _: sys.exit(1))
-def run(data):
+def run():
     import_runner = _get_upgrade_runner("mongo")
-    import_runner(data)
+    import_runner()

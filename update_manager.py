@@ -109,6 +109,15 @@ def backup(data: tuple, filepath: str, include_collection: str = None, exclude_c
 
 @cli.command()
 def migrate_vod():
+    """
+    Migrate VOD related mongo collections.
+    The following files should be under /usr/lucidum/mongo/db folder
+    - postReport.json
+    - postDashboard.json
+    - postDynamicFieldDef.json
+    - postDynamicFieldDisplay.json
+    - postSavedQuery.json    
+    """
     from upgrade_query_handler import run
     run()
 

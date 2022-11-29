@@ -107,8 +107,8 @@ def backup(data: tuple, filepath: str, include_collection: str = None, exclude_c
     backup_lucidum(list(data), filepath, include_collection, list(exclude_collection))
 
 
-@cli.command(name="migrate")
-def upgrade_query():
+@cli.command()
+def migrate_vod():
     from upgrade_query_handler import run
     run()
 

@@ -107,6 +107,13 @@ def backup(data: tuple, filepath: str, include_collection: str = None, exclude_c
     backup_lucidum(list(data), filepath, include_collection, list(exclude_collection))
 
 
+@cli.command(name="migrate")
+@click.option("--data", "-d", multiple=True, default=["dashboard"], type=click.Choice(['dashboard', 'query']))
+def upgrade_query(data: tuple):
+    from upgrade_query_handler import run
+    run(list(data))
+
+
 @cli.command()
 @click.option("--data", "-d", multiple=True, required=True, type=(str, click.Path(dir_okay=False)))
 def restore(data):

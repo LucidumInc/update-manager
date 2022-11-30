@@ -108,6 +108,20 @@ def backup(data: tuple, filepath: str, include_collection: str = None, exclude_c
 
 
 @cli.command()
+def migrate_vod():
+    """
+    Migrate VOD related mongo collections.
+    Place json files under /usr/lucidum/mongo/db folder
+    """
+    from handlers.mongo_import import run
+    run('postReport.json', 'biQuery_lucidum_report', drop=True)
+    run('postDashboard.json', 'biQuery_lucidum_dashboard', drop=True)
+    run('postDynamicFieldDef.json', 'local_dynamic_field_definition', override=True, upsert_fields='field_name')
+    run('postDynamicFieldDisplay.json', 'field_display_local', override=True, upsert_fields='field_name')
+    run('postSavedQuery.json', 'Query_Builder', override=True, upsert_fields='name')
+
+
+@cli.command()
 @click.option("--data", "-d", multiple=True, required=True, type=(str, click.Path(dir_okay=False)))
 def restore(data):
     from restore_handler import restore as restore_lucidum

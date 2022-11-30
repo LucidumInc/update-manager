@@ -17,7 +17,7 @@ class MongoImportJsonRunner:
         if drop is True:
             import_cmd += ' --drop'
         elif override is True:
-            import_cmd += f' --mode=upsert upsertFields={upsert_fields}'
+            import_cmd += f' --mode=upsert --upsertFields={upsert_fields}'
         try:
             result = container.exec_run(import_cmd.format(**get_mongo_config()))
             if result.exit_code:

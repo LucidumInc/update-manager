@@ -567,6 +567,26 @@ def get_fqdn():
         config_json = json.loads(f.read())
         return config_json['metrics']['append_dimensions']['FQDN']
 
+@api_router.get("/connector/list")
+def get_connector_list_from_db():
+    result = []
+    db_client = MongoDBClient()
+    collection_name = 'local_connector_configuration'
+    collection = db_client.client[db_client._mongo_db][collection_name]
+    for item in collection.find({'active': True}):
+        for service in item.get('services_list', []):
+            # status == OK is test passed, activity == True is selected
+            if service.get('status', None) == 'OK' and service.get('activity', None) == True:
+                result.append({'service': service['service'],
+                               'service_display_name': service.get('display_name', service['service']),
+                               'connector': item['connector_name'],
+                               'profile_db_id': str(item['_id']),
+                               'bridge_name': item['bridge_name'],
+                               'bridge_display_name': item.get('display_name', item['bridge_name'])
+                              })
+    return result
+
+    
 @api_router.get("/data/values", tags=['dataValues'])
 def get_data_values(collection, field):
     db_client = MongoDBClient()

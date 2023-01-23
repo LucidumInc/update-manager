@@ -549,7 +549,7 @@ def filter_connector_metrics(from_: str = Query(None, alias='from'), to_: str = 
             datetime_to = datetime.strptime(to_, '%Y-%m-%d')
             if datetime_from > datetime_to:
                 raise AppError('query parameter "from" should be less or equal to query parameter "to"')
-            filters['_utc'].update({'$lt': datetime_to})
+            filters['_utc'].update({'$lte': datetime_to})
     except ValueError:
         raise ValueError("Incorrect data format, should be YYYY-MM-DD")
     return filters

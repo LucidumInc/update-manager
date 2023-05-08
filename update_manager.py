@@ -121,13 +121,13 @@ def migrate_vod():
     run('postSavedQuery.json', 'Query_Builder', override=True, upsert_fields='name')
 
 @cli.command()
-def update_actioin_config():
+def update_action_config():
     """
     Update Action Config in mongo.
     Place json files under /usr/lucidum/mongo/db folder
     """
     from handlers.mongo_import import run
-    run('emailActionConfig.json', 'local_integration_config', override=True, upsert_fields='config_name')
+    run('emailActionConfig.json', 'local_integration_configuration', override=True, upsert_fields='config_name')
     
 
 @cli.command()

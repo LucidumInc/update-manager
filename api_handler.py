@@ -607,9 +607,9 @@ def parse_web_log(date_str, user_email_dict):
             else:
                 result.append({
                     "datetime": f"{items[0]}T{items[1]}",
-                    "type": "LOGIB",
+                    "type": "LOGIN",
                     "username": items[-1],
-                    "email": user_email_dict.get(items[12])
+                    "email": user_email_dict.get(items[-1])
                 })
     return result
 

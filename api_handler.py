@@ -2,7 +2,7 @@ import glob
 import json
 import subprocess
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 import base64
 import os
@@ -586,7 +586,48 @@ def get_connector_list_from_db():
                               })
     return result
 
-    
+def parse_web_log(date_str, user_email_dict):
+    cmd = f'sudo cat /usr/lucidum/web/app/logs/logFile.{date_str}.log'
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
+    result = []
+    for line_bytes in iter(process.stdout.readline, ''):
+        line = line_bytes.decode()
+        if not line:
+            break
+        if "User successfully logged in" in line:
+            items = line.strip().split(' ')
+            if len(items) > 12:
+                username = items[12][:-1]
+                result.append({
+                    "datetime": f"{items[0]}T{items[1]}Z",
+                    "type": "SSO",
+                    "username": username,
+                    "email": user_email_dict.get(username)
+                })
+            else:
+                result.append({
+                    "datetime": f"{items[0]}T{items[1]}Z",
+                    "type": "LOGIN",
+                    "username": items[-1],
+                    "email": user_email_dict.get(items[-1])
+                })
+    return result
+
+@api_router.get("/ui/login/metrics")
+def get_ui_login_metrics():
+    # returns user login logs for passed 7 days
+    user_email_dict = {} # username to email mapping from db
+    db_client = MongoDBClient()
+    records = db_client.client[db_client._mongo_db]['jhi_user'].find({})
+    for item in records:
+        user_email_dict[item['login']] = item['email']
+    base = datetime.today()
+    date_list = [base - timedelta(days=x) for x in range(7)]
+    result = []
+    for d in date_list:
+        result += parse_web_log(d.strftime("%Y-%m-%d"), user_email_dict)
+    return result
+
 @api_router.get("/data/values", tags=['dataValues'])
 def get_data_values(collection, field):
     db_client = MongoDBClient()

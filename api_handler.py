@@ -599,14 +599,14 @@ def parse_web_log(date_str, user_email_dict):
             if len(items) > 12:
                 username = items[12][:-1]
                 result.append({
-                    "datetime": f"{items[0]}T{items[1]}",
+                    "datetime": f"{items[0]}T{items[1]}Z",
                     "type": "SSO",
                     "username": username,
                     "email": user_email_dict.get(username)
                 })
             else:
                 result.append({
-                    "datetime": f"{items[0]}T{items[1]}",
+                    "datetime": f"{items[0]}T{items[1]}Z",
                     "type": "LOGIN",
                     "username": items[-1],
                     "email": user_email_dict.get(items[-1])
@@ -615,8 +615,8 @@ def parse_web_log(date_str, user_email_dict):
 
 @api_router.get("/ui/login/metrics")
 def get_ui_login_metrics():
-    # get username and email from db
-    user_email_dict = {}
+    # returns user login logs for passed 7 days
+    user_email_dict = {} # username to email mapping from db
     db_client = MongoDBClient()
     records = db_client.client[db_client._mongo_db]['jhi_user'].find({})
     for item in records:

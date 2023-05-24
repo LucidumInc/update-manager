@@ -180,13 +180,17 @@ def run_connector_config_to_db():
     from docker_service import run_docker_container
     connectors = get_local_connectors()    
     for connector in connectors:
-        image = f"connector-{connector['type']}:{connector['version']}"
-        command = f'bash -c "python lucidum_{connector["type"]}.py config-to-db"'
-        out = run_docker_container(
-            image, stdout=True, stderr=True, remove=True, network="lucidum_default", command=command
-        )
-        logger.info(connector)
-        logger.info(out.decode())        
+        try:
+            image = f"connector-{connector['type']}:{connector['version']}"
+            command = f'bash -c "python lucidum_{connector["type"]}.py config-to-db"'
+            out = run_docker_container(
+                image, stdout=True, stderr=True, remove=True, network="lucidum_default", command=command
+            )
+            logger.info(connector)
+            logger.info(out.decode())
+        except Exception as e:
+            logger.warning(f"config-to-db error: {e}")
+
 
 if __name__ == '__main__':
     cli()

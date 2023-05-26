@@ -1,8 +1,8 @@
 package:
-  postgresql:
-    installed: true
-  postgresql-contrib:
-    installed: true
+  # postgresql:
+    # installed: true
+  # postgresql-contrib:
+    # installed: true
   gcc:
     installed: true
   git:
@@ -23,10 +23,10 @@ package:
   libpq-dev:
     installed: true
 {{else if eq .Env.USER "ec2-user"}}
-  postgresql-server:
-    installed: true
-  postgresql-devel:
-    installed: true
+  # postgresql-server:
+    # installed: true
+  # postgresql-devel:
+    # installed: true
   python3-devel:
     installed: true
   python3-libs:
@@ -181,12 +181,12 @@ port:
       - 0.0.0.0
 
 service:
-  airflow-scheduler:
-    enabled: true
-    running: true
-  airflow-webserver:
-    enabled: true
-    running: true
+  # airflow-scheduler:
+    # enabled: true
+    # running: true
+  # airflow-webserver:
+    # enabled: true
+    # running: true
   docker:
     enabled: true
     running: true
@@ -200,13 +200,13 @@ service:
     running: true
 {{end}}
 
-user:
-  postgres:
-    exists: true
+# user:
+  # postgres:
+    # exists: true
 
-group:
-  postgres:
-    exists: true
+# group:
+  # postgres:
+    # exists: true
 
 process:
   sshd:

@@ -1,3 +1,4 @@
+import socket
 import glob
 import json
 import subprocess
@@ -643,6 +644,13 @@ def get_data_values(collection, field):
                         result["values"][value] = result["values"].get(value, 0) + record['count']
             else:
                 result["values"][record['_id']] = result["values"].get(record['_id'], 0) + record['count']
+    return result
+
+@api_router.get("/host/network")
+def get_host_network():
+    result = {}
+    result['host_ip'] = socket.gethostbyname(socket.gethostname())
+    result['host_fqdn'] = f"{socket.gethostname()}.lucidum.cloud"
     return result
 
 @root_router.get("/setup", response_class=HTMLResponse, tags=["setup"])

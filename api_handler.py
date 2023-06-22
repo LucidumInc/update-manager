@@ -649,7 +649,7 @@ def get_data_values(collection, field):
 @api_router.get("/host/network")
 def get_host_network():
     result = {}
-    result['host_ip'] = socket.gethostbyname(socket.gethostname())
+    result['host_ip'] = socket.gethostbyname(socket.gethostname() + ".local")
     result['host_fqdn'] = f"{socket.gethostname()}.lucidum.cloud"
     return result
 

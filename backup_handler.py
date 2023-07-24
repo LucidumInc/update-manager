@@ -112,6 +112,7 @@ class LucidumDirBackupRunner(BaseBackupRunner):
         "__pycache__",
         "venv",
         "virtualenv",
+        "postgres"
     ]
 
     def __call__(self):

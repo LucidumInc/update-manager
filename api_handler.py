@@ -563,10 +563,7 @@ def get_connector_metric(filters: dict = Depends(filter_connector_metrics)):
     return {"data": list(collections)}
 
 def get_fqdn():
-    CONFIG_PATH = "/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent.json"
-    with open(CONFIG_PATH) as f:
-        config_json = json.loads(f.read())
-        return config_json['metrics']['append_dimensions']['FQDN']
+    return f"{socket.gethostname()}.lucidum.cloud"
 
 @api_router.get("/connector/list")
 def get_connector_list_from_db():

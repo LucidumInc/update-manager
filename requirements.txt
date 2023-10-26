@@ -8,7 +8,7 @@ chardet==4.0.0
 click==7.1.2
 colorama==0.4.3
 contextvars==2.4
-cryptography==3.4.6
+cryptography==41.0.5
 docker==4.4.4
 docutils==0.15.2
 dynaconf==3.1.4
@@ -42,6 +42,6 @@ psutil==5.8.0
 pycrypto==2.6.1
 pycryptodome==3.10.1
 pycryptodomex==3.10.1
-M2Crypto==0.38.0
+M2Crypto==0.39.0
 SQLAlchemy==1.4.26
 openvpn-status==0.2.1

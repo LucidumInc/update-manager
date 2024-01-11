@@ -72,6 +72,7 @@ def create_web_directory(base_dir):
     copy_file(os.path.join("resources", "server.xml"), os.path.join(conf_dir, "server.xml"))
     copy_file(os.path.join("resources", "web.xml"), os.path.join(conf_dir, "web.xml"))
     copy_file(os.path.join("resources", "index.jsp"), os.path.join(app_dir, "index.jsp"))
+    copy_file(os.path.join("resources", "context.xml"), os.path.join(conf_dir, "context.xml"))
     if created:
         change_permissions_recursive(web_dir, 0o777)
     return web_dir

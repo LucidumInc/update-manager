@@ -135,7 +135,7 @@ def get_ecr_client(access_key: str = None, secret_key: str = None) -> ECRClient:
 def get_docker_client() -> DockerClient:
     global _docker_client
     if _docker_client is None:
-        _docker_client = DockerClient.from_env()
+        _docker_client = DockerClient.from_env(timeout=600)
     return _docker_client
 
 

@@ -223,6 +223,8 @@ def df_to_sl():
         if 'history' in df_record['field_collection'].lower():
             logger.warning("cannot convert dynamic field: {df_record['field_name']} for history tables")
             return
+        if df_record['field_type'] == 'Number':
+            df_record['field_type'] = 'Integer'
         # delete existing and create smart label record
         smart_label_coll.delete_many({"field_name": df_record['field_name']})
         smart_label_record = {'field_collection': df_record['field_collection'],

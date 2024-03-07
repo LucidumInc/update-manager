@@ -34,7 +34,7 @@ gunicorn==19.10.0
 aiofiles==0.6.0
 distro==1.5.0
 psutil==5.8.0
-pycryptodome==3.10.1
+pycryptodome==3.19.1
 pycryptodomex==3.10.1
 SQLAlchemy==1.4.26
 openvpn-status==0.2.1

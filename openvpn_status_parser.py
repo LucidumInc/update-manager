@@ -40,7 +40,7 @@ def parse_openvpn_log(log_text: str) -> dict:
         elif line.startswith('Max bcast/mcast queue length'):
             log_data['global_stats']['max_bcast_mcast_queue_length'] = int(line.split(',')[1])
         else:
-            if section == 'client_list':
+            if section == 'client_list_headers':
                 fields = line.split(',')
                 if len(fields) == 5:
                     client = {
@@ -52,7 +52,7 @@ def parse_openvpn_log(log_text: str) -> dict:
                         'status': 'connected'
                     }
                     log_data['client_list'].append(client)
-            elif section == 'routing_table':
+            elif section == 'routing_table_headers':
                 fields = line.split(',')
                 if len(fields) == 4:
                     route = {

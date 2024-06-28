@@ -506,6 +506,7 @@ def get_tunnel_client_dict():
     result = buf.readlines()
     clients = {}
     for record in result:
+        logger.error(f"Line: {record}")
         if record.split(',')[0] != 'name':
             items = record.split(',')
             clients[items[0]] = parser.parse(items[2]).isoformat()

@@ -517,7 +517,10 @@ def get_clients():
         logger.error("Failed to get clients from openvpn-status.log: {}?!", error)
         raise HTTPException(status_code=500, detail=error)
     status = parse_openvpn_log(status_result.output)
-    routing_table = {client_.common_name: client_ for client_ in status.routing_table.values()}
+    if ('routing_table' not in status):
+        routing_table = {}
+    else:
+        routing_table = {client_.common_name: client_ for client_ in status.routing_table.values()}
     tunnel_client_dict = get_tunnel_client_dict()
     clients = []
     for client_ in status.client_list.values():

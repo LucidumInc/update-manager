@@ -29,7 +29,7 @@ from fastapi.templating import Jinja2Templates
 from loguru import logger
 from pydantic import BaseModel, validator
 from starlette.background import BackgroundTask
-from openvpn_status_parser import parse_openvpn_log, fix_datetime_format
+from openvpn_status_parser import revertDatetimeFormat
 
 from config_handler import get_lucidum_dir, get_airflow_db_config, get_images, get_mongo_config, get_ecr_token, \
     get_key_dir_config, get_ecr_url, get_ecr_client, get_aws_config, get_ecr_base, get_source_mapping_file_path
@@ -477,20 +477,18 @@ def generate_client_configuration(tunnel_client: TunnelClientModel):
     container = get_docker_container("tunnel")
     # create tunnel client with client_name
     if client_name not in client_name_list:
+        # [DE-130] [MG]
+        # Pass in the --batch option b/c updated easyrsa commands now require a prompt. Bypass this
+        # prompt like in previous versions.
         create_client_cmd = f"easyrsa --batch build-client-full {client_name} nopass"
         create_result = container.exec_run(create_client_cmd)
-        logger.error(f"cmd: {create_client_cmd} - {create_result.exit_code}")
         if create_result.exit_code:
             error = create_result.output.decode()
             logger.error("Failed to create client configuration: {}?!", error)
             raise HTTPException(status_code=500, detail=error)
     # export tunnel client config file
-    logger.error("starting sleep....")
-    time.sleep(5)
-    logger.error("ending sleep....")
     export_client_config_cmd = f"ovpn_getclient {client_name}"
     export_result = container.exec_run(export_client_config_cmd)
-    logger.error(f"cmd: {export_client_config_cmd} - {export_result.exit_code}")
     if export_result.exit_code:
         error = export_result.output.decode()
         logger.error("Failed to export client configuration: {}?!", error)
@@ -523,7 +521,10 @@ def get_clients():
         error = status_result.output.decode()
         logger.error("Failed to get clients from openvpn-status.log: {}?!", error)
         raise HTTPException(status_code=500, detail=error)
-    parsed_text = fix_datetime_format(status_result.output)
+    # [DE-130] [MG]
+    # Update the datetime format of the command output so it matches the old format used in previous
+    # versions of OpenVPN.
+    parsed_text = revertDatetimeFormat(status_result.output)
     status = parse_status(parsed_text)
     routing_table = {client_.common_name: client_ for client_ in status.routing_table.values()}
     tunnel_client_dict = get_tunnel_client_dict()

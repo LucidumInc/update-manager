@@ -4,7 +4,6 @@ import json
 import subprocess
 import uuid
 from datetime import datetime, timezone, timedelta
-import time
 
 import base64
 import os

@@ -37,4 +37,4 @@ psutil==5.8.0
 pycryptodome==3.10.1
 pycryptodomex==3.10.1
 SQLAlchemy==1.4.26
-openvpn-status==0.2.1
+openvpn-status==0.2.2

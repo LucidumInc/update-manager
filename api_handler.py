@@ -28,6 +28,7 @@ from fastapi.templating import Jinja2Templates
 from loguru import logger
 from pydantic import BaseModel, validator
 from starlette.background import BackgroundTask
+from openvpn_status_parser import revertDatetimeFormat
 
 from config_handler import get_lucidum_dir, get_airflow_db_config, get_images, get_mongo_config, get_ecr_token, \
     get_key_dir_config, get_ecr_url, get_ecr_client, get_aws_config, get_ecr_base, get_source_mapping_file_path
@@ -475,7 +476,10 @@ def generate_client_configuration(tunnel_client: TunnelClientModel):
     container = get_docker_container("tunnel")
     # create tunnel client with client_name
     if client_name not in client_name_list:
-        create_client_cmd = f"easyrsa build-client-full {client_name} nopass"
+        # [DE-130] [MG]
+        # Pass in the --batch option b/c updated easyrsa commands now require a prompt. Bypass this
+        # prompt like in previous versions.
+        create_client_cmd = f"easyrsa --batch build-client-full {client_name} nopass"
         create_result = container.exec_run(create_client_cmd)
         if create_result.exit_code:
             error = create_result.output.decode()
@@ -515,7 +519,11 @@ def get_clients():
         error = status_result.output.decode()
         logger.error("Failed to get clients from openvpn-status.log: {}?!", error)
         raise HTTPException(status_code=500, detail=error)
-    status = parse_status(status_result.output)
+    # [DE-130] [MG]
+    # Update the datetime format of the command output so it matches the old format used in previous
+    # versions of OpenVPN.
+    parsed_text = revertDatetimeFormat(status_result.output)
+    status = parse_status(parsed_text)
     routing_table = {client_.common_name: client_ for client_ in status.routing_table.values()}
     tunnel_client_dict = get_tunnel_client_dict()
     clients = []

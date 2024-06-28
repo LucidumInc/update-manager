@@ -13,6 +13,9 @@ def parse_openvpn_log(log_text: str) -> dict:
         'global_stats': {},
     }
 
+    if isinstance(log_text, bytes):
+        log_text = log_text.decode('utf-8')
+
     lines = log_text.split('\n')
     section = None
 

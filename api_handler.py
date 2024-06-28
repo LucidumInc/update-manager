@@ -486,6 +486,7 @@ def generate_client_configuration(tunnel_client: TunnelClientModel):
     # export tunnel client config file
     export_client_config_cmd = f"ovpn_getclient {client_name}"
     export_result = container.exec_run(export_client_config_cmd)
+    logger.error(f"cmd: {export_client_config_cmd} - {export_result.exit_code}")
     if export_result.exit_code:
         error = export_result.output.decode()
         logger.error("Failed to export client configuration: {}?!", error)

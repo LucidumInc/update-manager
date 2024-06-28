@@ -4,6 +4,7 @@ import json
 import subprocess
 import uuid
 from datetime import datetime, timezone, timedelta
+import time
 
 import base64
 import os
@@ -484,6 +485,7 @@ def generate_client_configuration(tunnel_client: TunnelClientModel):
             logger.error("Failed to create client configuration: {}?!", error)
             raise HTTPException(status_code=500, detail=error)
     # export tunnel client config file
+    time.sleep(2)
     export_client_config_cmd = f"ovpn_getclient {client_name}"
     export_result = container.exec_run(export_client_config_cmd)
     logger.error(f"cmd: {export_client_config_cmd} - {export_result.exit_code}")

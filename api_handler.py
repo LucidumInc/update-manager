@@ -476,8 +476,9 @@ def generate_client_configuration(tunnel_client: TunnelClientModel):
     container = get_docker_container("tunnel")
     # create tunnel client with client_name
     if client_name not in client_name_list:
-        create_client_cmd = f"echo yes | easyrsa build-client-full {client_name} nopass > /dev/null"
+        create_client_cmd = f"echo yes | easyrsa build-client-full {client_name} nopass"
         create_result = container.exec_run(create_client_cmd)
+        logger.error(f"cmd: {create_client_cmd} - {create_result.exit_code}")
         if create_result.exit_code:
             error = create_result.output.decode()
             logger.error("Failed to create client configuration: {}?!", error)

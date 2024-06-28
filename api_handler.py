@@ -28,7 +28,7 @@ from fastapi.templating import Jinja2Templates
 from loguru import logger
 from pydantic import BaseModel, validator
 from starlette.background import BackgroundTask
-from openvpn_status_parser import parse_openvpn_log
+from openvpn_status_parser import parse_openvpn_log, fix_datetime_format
 
 from config_handler import get_lucidum_dir, get_airflow_db_config, get_images, get_mongo_config, get_ecr_token, \
     get_key_dir_config, get_ecr_url, get_ecr_client, get_aws_config, get_ecr_base, get_source_mapping_file_path
@@ -516,11 +516,9 @@ def get_clients():
         error = status_result.output.decode()
         logger.error("Failed to get clients from openvpn-status.log: {}?!", error)
         raise HTTPException(status_code=500, detail=error)
-    status = parse_openvpn_log(status_result.output)
-    if ('routing_table' not in status):
-        routing_table = {}
-    else:
-        routing_table = {client_.common_name: client_ for client_ in status.routing_table.values()}
+    parsed_text = fix_datetime_format(status_result.output)
+    status = parse_status(parsed_text)
+    routing_table = {client_.common_name: client_ for client_ in status.routing_table.values()}
     tunnel_client_dict = get_tunnel_client_dict()
     clients = []
     for client_ in status.client_list.values():

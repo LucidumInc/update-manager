@@ -1,6 +1,26 @@
 import re
 from datetime import datetime
 
+def fix_datetime_format(log_text: str) -> str:
+    """
+    """
+
+    if isinstance(log_text, bytes):
+        log_text = log_text.decode('utf-8')
+
+    # Define the regex pattern to find the date-time strings
+    pattern = r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})'
+    
+    # Function to convert the date-time string to the desired format
+    def convert_datetime(match):
+        dt_str = match.group(1)
+        dt_obj = datetime.strptime(dt_str, '%Y-%m-%d %H:%M:%S')
+        return dt_obj.strftime('%a %b %d %H:%M:%S %Y')
+    
+    # Substitute the matched date-time strings with the reformatted strings
+    return re.sub(pattern, convert_datetime, log_text)
+
+
 def parse_openvpn_log(log_text: str) -> dict:
     """
     TODO:
@@ -16,6 +36,7 @@ def parse_openvpn_log(log_text: str) -> dict:
     if isinstance(log_text, bytes):
         log_text = log_text.decode('utf-8')
 
+    log_text = fix_datetime_format(log_text)
     lines = log_text.split('\n')
     section = None
 

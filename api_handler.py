@@ -429,6 +429,8 @@ def run_connector_test_command(connector_type: str, technology: str, profile_db_
     out = run_docker_container(
         image, stdout=True, stderr=True, remove=True, network="lucidum_default", privileged=docker_privileged, command=command
     )
+    if trace_id:
+        _db_client.client['test_database']['connector_test_result'].update_one({"trace_id": trace_id}, {"$set": {"last_tested_at": datetime.now(tz=timezone.utc)}})
     return {
         "status": "OK",
         "output": out.decode(),

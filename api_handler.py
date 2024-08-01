@@ -619,29 +619,6 @@ def parse_web_log(date_str, user_email_dict):
                     "username": items[-1],
                     "email": user_email_dict.get(items[-1])
                 })
-        elif "AdviceTraits: Unauthorized" in line:
-            items = line.strip().split(' ')
-            if "is not found in the database" in line:
-                result.append({
-                    "datetime": f"{items[0]}T{items[1]}Z",
-                    "type": "LOGIN",
-                    "username": items[-7],
-                    "email": "N/A"
-                })
-            elif "SSO user can't login with password":
-                result.append({
-                    "datetime": f"{items[0]}T{items[1]}Z",
-                    "type": "SSO",
-                    "username": "N/A",
-                    "email": "N/A"
-                })
-            else:
-                result.append({
-                    "datetime": f"{items[0]}T{items[1]}Z",
-                    "type": "LOGIN",
-                    "username": "N/A",
-                    "email": "N/A"
-                })
 
     return result
 

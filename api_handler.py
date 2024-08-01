@@ -655,13 +655,8 @@ def parse_login_data(date_str: str, user_email_dict: dict) -> dict:
         if not line:
             break
 
-        # Ignore expired tokens as they don't necessarily indicate a failure. A retry will follow
-        # this call and then either success or failure will occur.
-        if ("AdviceTraits: Unauthorized: token is overtime, please try login again" in line):
-            break
-
+        items = line.strip().split(' ')
         if "User successfully logged in" in line:
-            items = line.strip().split(' ')
             if len(items) > 12:
                 username = items[12][:-1]
                 result.append({
@@ -679,10 +674,16 @@ def parse_login_data(date_str: str, user_email_dict: dict) -> dict:
                     "email": user_email_dict.get(items[-1]),
                     "status": "success"
                 })
-        elif "AdviceTraits: Unauthorized" in line:
-            items = line.strip().split(' ')
-
-            if "is not found in the database" in line:
+        else:
+            if "DbAuthProvider: User failed to log in: " in line:
+                result.append({
+                    "datetime": f"{items[0]}T{items[1]}Z",
+                    "type": "LOGIN",
+                    "username": items[-1],
+                    "email": user_email_dict.get(items[-1]),
+                    "status": "success"
+                })
+            elif "is not found in the database" in line:
                 result.append({
                     "datetime": f"{items[0]}T{items[1]}Z",
                     "type": "LOGIN",
@@ -690,18 +691,10 @@ def parse_login_data(date_str: str, user_email_dict: dict) -> dict:
                     "email": "N/A",
                     "status": "failure"
                 })
-            elif "SSO user can't login with password":
+            elif "SSO user can't login with password" in line:
                 result.append({
                     "datetime": f"{items[0]}T{items[1]}Z",
                     "type": "SSO",
-                    "username": "N/A",
-                    "email": "N/A",
-                    "status": "failure"
-                })
-            else:
-                result.append({
-                    "datetime": f"{items[0]}T{items[1]}Z",
-                    "type": "LOGIN",
                     "username": "N/A",
                     "email": "N/A",
                     "status": "failure"

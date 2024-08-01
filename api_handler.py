@@ -619,21 +619,111 @@ def parse_web_log(date_str, user_email_dict):
                     "username": items[-1],
                     "email": user_email_dict.get(items[-1])
                 })
+
+    return result
+
+def parse_login_data(date_str: str, user_email_dict: dict) -> dict:
+    """
+    Parses the web logfile and returns a list of dictionaries showing successful and failed
+    logins.
+
+    :param str date_str: The '%Y-%m-%d' datetime string to match a logfile name.
+    :param dict user_email_dict: A dictionary of names to emails.
+    :returns: list
+    """
+
+    # Logfile line examples:
+    #
+    # Successful examples:
+    # 2024-07-31 15:08:32,547 WARN  [https-openssl-nio-8443-exec-5] DbAuthProvider: User successfully logged in: mgiles
+    # 2024-08-01 12:26:58,843 WARN  [https-openssl-nio-8443-exec-13] LucidumSSOAuthProvider: Ludicum SSO User successfully logged in: mike, email: mike.giles@lucidumsecurity.com
+    #
+    # Failed examples:
+    # 2024-07-31 17:29:46,356 WARN  [https-openssl-nio-8443-exec-6] AdviceTraits: Unauthorized: boyyo is not found in the database
+    # 2024-07-31 17:29:18,853 WARN  [https-openssl-nio-8443-exec-9] AdviceTraits: Unauthorized: SSO user can't login with password
+    # logFile.2024-06-07.log:2024-06-07 19:52:03,067 WARN  [https-openssl-nio-8443-exec-6] AdviceTraits: Unauthorized: token is overtime, please try login again
+    # logFile.2024-06-07.log:2024-06-07 19:52:13,418 WARN  [https-openssl-nio-8443-exec-9] AdviceTraits: Unauthorized: Bad password
+    #
+
+    cmd = f'sudo cat /usr/lucidum/web/app/logs/logFile.{date_str}.log'
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
+    result = []
+
+    for line_bytes in iter(process.stdout.readline, ''):
+        line = line_bytes.decode()
+
+        if not line:
+            break
+
+        items = line.strip().split(' ')
+        if "User successfully logged in" in line:
+            if len(items) > 12:
+                username = items[12][:-1]
+                result.append({
+                    "datetime": f"{items[0]}T{items[1]}Z",
+                    "type": "SSO",
+                    "username": username,
+                    "email": user_email_dict.get(username),
+                    "status": "success"
+                })
+            else:
+                result.append({
+                    "datetime": f"{items[0]}T{items[1]}Z",
+                    "type": "LOGIN",
+                    "username": items[-1],
+                    "email": user_email_dict.get(items[-1]),
+                    "status": "success"
+                })
+        else:
+            if "DbAuthProvider: User failed to log in: " in line:
+                result.append({
+                    "datetime": f"{items[0]}T{items[1]}Z",
+                    "type": "LOGIN",
+                    "username": items[-1],
+                    "email": user_email_dict.get(items[-1]),
+                    "status": "success"
+                })
+            elif "is not found in the database" in line:
+                result.append({
+                    "datetime": f"{items[0]}T{items[1]}Z",
+                    "type": "LOGIN",
+                    "username": items[-7],
+                    "email": "N/A",
+                    "status": "failure"
+                })
+            elif "SSO user can't login with password" in line:
+                result.append({
+                    "datetime": f"{items[0]}T{items[1]}Z",
+                    "type": "SSO",
+                    "username": "N/A",
+                    "email": "N/A",
+                    "status": "failure"
+                })
+
     return result
 
 @api_router.get("/ui/login/metrics")
-def get_ui_login_metrics():
-    # returns user login logs for passed 7 days
-    user_email_dict = {} # username to email mapping from db
+def get_ui_login_metrics() -> list:
+    """
+    Returns a list of dictionaries, each detailing a successful or failed login attempt for that
+    day.
+    :returns: list
+    """
+
     db_client = MongoDBClient()
     records = db_client.client[db_client._mongo_db]['jhi_user'].find({})
+
+    # Dictionary of usernames to email addresses from the database.
+    user_email_dict = {}
+
     for item in records:
         user_email_dict[item['login']] = item['email']
-    base = datetime.today()
-    date_list = [base - timedelta(days=x) for x in range(7)]
+
+    date_list = [datetime.today()]
     result = []
     for d in date_list:
-        result += parse_web_log(d.strftime("%Y-%m-%d"), user_email_dict)
+        result += parse_login_data(d.strftime("%Y-%m-%d"), user_email_dict)
+
     return result
 
 @api_router.get("/data/values", tags=['dataValues'])

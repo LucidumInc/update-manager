@@ -1,22 +1,36 @@
-name: Mirror repo to S3
+name: Backup GitHub Repository to Cloudflare R2 Bucket
+
 on:
   push:
     branches:
       - master
 jobs:
-  s3Backup:
-    runs-on: ubuntu-latest
+  back-up:
+    runs-on: ubuntu-22.04
+
+    strategy:
+      matrix:
+        repo:
+          [
+            "github.com/LucidumInc/update-manager.git",
+          ]
+
     steps:
-      - uses: actions/checkout@v2
-      - name: Extract branch name
-        shell: bash
-        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
-        id: extract_branch      
-      - name: S3 Backup
-        uses: peter-evans/s3-backup@v1
-        env:
-          ACCESS_KEY_ID: ${{ secrets.S3_BACKUP_ACCESSKEY }}
-          SECRET_ACCESS_KEY: ${{ secrets.S3_BACKUP_SECRET }}
-          MIRROR_TARGET: lucidum-github-backup/${{ github.event.repository.name }}/${{ steps.extract_branch.outputs.branch }}
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          args: --overwrite --remove
+          node-version: "lts/*"
+
+      - name: Install @larose/git-backup
+        run: npm install -g @larose/git-backup
+
+      - name: Backing up repository ${{ github.event.repository.name }}
+        run: |
+          git-backup snapshot \
+            --repo https://${{ secrets.BACKUP_PAT }}@${{ matrix.repo }} \
+            --remote ${{ secrets.BACKUP_LOCATION }}/${{ github.event.repository.name }}/${{ github.ref_name }} \
+            --access-key-id ${{ secrets.BACKUP_ACCESS_KEY_ID }} \
+            --secret-access-key ${{ secrets.BACKUP_SECRET_ACCESS_KEY }}

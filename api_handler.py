@@ -681,7 +681,7 @@ def parse_login_data(date_str: str, user_email_dict: dict) -> dict:
                     "type": "LOGIN",
                     "username": items[-1],
                     "email": user_email_dict.get(items[-1]),
-                    "status": "success"
+                    "status": "failure"
                 })
             elif "is not found in the database" in line:
                 result.append({

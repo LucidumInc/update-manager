@@ -620,25 +620,7 @@ def get_connector_list_from_db():
                                'service_display_name': service.get('display_name', service['service']),
                                'connector': item['connector_name'],
                                'profile_db_id': str(item['_id']),
-                               'bridge_name': item['bridge_name'],
-                               'bridge_display_name': item.get('display_name', item['bridge_name'])
-                               })
-    return result
-
-
-@api_router.get("/connector/listall")
-def get_connector_fulllist_from_db():
-    result = []
-    db_client = MongoDBClient()
-    collection_name = 'local_connector_configuration'
-    collection = db_client.client[db_client._mongo_db][collection_name]
-    for item in collection.find({'active': True}):
-        for service in item.get('services_list', []):
-            if service.get('activity', None) == True:
-                result.append({'service': service['service'],
-                               'service_display_name': service.get('display_name', service['service']),
-                               'connector': item['connector_name'],
-                               'profile_db_id': str(item['_id']),
+                               'profile_name': item['profile_name'],
                                'bridge_name': item['bridge_name'],
                                'bridge_display_name': item.get('display_name', item['bridge_name'])
                                })

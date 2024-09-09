@@ -626,6 +626,25 @@ def get_connector_list_from_db():
                                })
     return result
 
+@api_router.get("/connector/listall")
+def get_all_connector_list_from_db():
+    result = []
+    db_client = MongoDBClient()
+    collection_name = 'local_connector_configuration'
+    collection = db_client.client[db_client._mongo_db][collection_name]
+    for item in collection.find():
+        for service in item.get('services_list', []):
+            result.append({'service': service['service'],
+                           'service_display_name': service.get('display_name', service['service']),
+                           'service_status': service.get('activity', False),
+                           'connector': item['connector_name'],
+                           'profile_db_id': str(item['_id']),
+                           'profile_name': item['profile_name'],
+                           'profile_status': item.get('active', False),
+                           'bridge_name': item['bridge_name'],
+                           'bridge_display_name': item.get('display_name', item['bridge_name'])
+                          })
+    return result
 
 def parse_web_log(date_str, user_email_dict):
     cmd = f'sudo cat /usr/lucidum/web/app/logs/logFile.{date_str}.log'

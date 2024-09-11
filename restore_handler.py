@@ -88,7 +88,7 @@ class MongoRestoreRunner(BaseRestoreRunner):
         success = container.put_archive(self.container_dest_dir, tar_stream)
         if not success:
             raise AppError(f"Putting '{self.filepath}' file to 'mongo' container was failed")
-        restore_cmd = f"mongorestore -v --username={{mongo_user}} --password={{mongo_pwd}} --authenticationDatabase=test_database --host={{mongo_host}} --port={{mongo_port}} --archive={self.container_dest_dir}/{os.path.basename(local_filepath)} --gzip --db={{mongo_db}} --drop"
+        restore_cmd = f"mongorestore -v --username={{mongo_user}} --password={{mongo_pwd}} --authenticationDatabase=test_database --host={{mongo_host}} --port={{mongo_port}} --archive={self.container_dest_dir}/{os.path.basename(local_filepath)} --gzip --nsInclude='{{mongo_db}}.*' --drop"
         try:
             result = container.exec_run(restore_cmd.format(**get_mongo_config()))
             if result.exit_code:

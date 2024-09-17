@@ -204,5 +204,15 @@ def run_connector_config_to_db():
 def df_to_sl():
     logger.info("nothing to do here.")
 
+@cli.command()
+def run_connector_test():
+    from helper import run_connector_profile_test
+    run_connector_profile_test()
+
+@cli.command()
+def run_action_test():
+    from helper import run_action_config_test
+    run_action_config_test()
+
 if __name__ == '__main__':
     cli()

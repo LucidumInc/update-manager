@@ -46,6 +46,7 @@ from rsa import build_key_client
 from service_status_handler import get_services_statuses
 import io
 from dateutil import parser
+from werkzeug.utils import secure_filename
 
 AIRFLOW_DOCKER_FILENAME = "airflow_docker.py"
 
@@ -198,7 +199,7 @@ def setupairflow(component: AirflowSetupModel):
                 logger.info(f"create airflow dag at /usr/lucidum/airflow/dags/{template}_{customer}.py ...")
                 writefile.write(template_content.replace('{{ customer }}', customer))
 
-    customer_name = component.customer_name
+    customer_name = secure_filename(component.customer_name)
     customer_ip = component.customer_ip
     with open(f'/usr/lucidum/.env', 'r') as envfile:
         env = envfile.read()

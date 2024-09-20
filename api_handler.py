@@ -183,6 +183,47 @@ class TunnelClientModel(BaseModel):
     client_name: str
 
 
+class AirflowSetupModel(BaseModel):
+    customer_name: str
+    customer_ip: str
+
+
+@api_router.post("/setupairflow", tags=["setupairflow"])
+def setupairflow(component: AirflowSetupModel):
+    # Function to copy airflow dag files
+    def create_airflow_file(customer, template):
+        with open(f'/usr/lucidum/update-manager/templates/{template}.py.j2', 'r') as templatefile:
+            template_content = templatefile.read()
+            with open(f"/usr/lucidum/airflow/dags/{template}_{customer}.py", 'w+') as writefile:
+                logger.info(f"create airflow dag at /usr/lucidum/airflow/dags/{template}_{customer}.py ...")
+                writefile.write(template_content.replace('{{ customer }}', customer))
+
+    customer_name = component.customer_name
+    customer_ip = component.customer_ip
+    with open(f'/usr/lucidum/.env', 'r') as envfile:
+        env = envfile.read()
+        airflow_password = env.split('_AIRFLOW_WWW_USER_PASSWORD=')[-1].split('\n')[0].strip()
+
+    logger.info(f"set up airflow variable for customer {customer_name}, ip {customer_ip} ...")
+    session = requests.Session()
+    session.auth = ('admin', airflow_password)
+    variable_url = "http://localhost:9090/api/v1/variables"
+    payload = json.dumps({
+        "description": f"{customer_name} ec2 internal ip",
+        "key": f"{customer_name}_ip",
+        "value": customer_ip
+    })
+    headers = {'Content-Type': 'application/json'}
+    response = session.post(variable_url, headers=headers, data=payload)
+    logger.info(response.text)
+    create_airflow_file(customer_name, 'airflow_action')
+    create_airflow_file(customer_name, 'airflow_service')
+    return {
+        "status": "OK",
+        "message": "success",
+    }
+
+
 @api_router.get("/healthcheck", tags=["health"])
 @api_router.get("/healthcheck/{category}", tags=["health"])
 def get_health_status(category: str = None) -> dict:

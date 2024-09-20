@@ -1,0 +1,284 @@
+# -*- coding: utf-8 -*-
+from airflow import DAG, AirflowException
+from datetime import datetime, timedelta
+from airflow.operators.python import PythonOperator
+from airflow.models.dagrun import DagRun
+from airflow.models import Variable
+from lib.helper import get_ssm_pem, run_remote_cmds
+import logging
+import sys
+import requests
+import time
+
+CUSTOMER = '{{ customer }}'
+run_flag = False
+host_ip = Variable.get(f"{CUSTOMER}_ip")
+host_user = 'lucidum-support'
+
+
+def check_previous_runs(**kwargs):
+    global run_flag
+    context = kwargs
+    dag_id = context['dag_run'].dag_id
+    dag_runs = DagRun.find(dag_id=dag_id)
+    running = False
+    running_id = []
+    running_count = 0
+    if dag_runs and len(dag_runs) > 1:
+        for dag_run in dag_runs:
+            if dag_run.state == 'running':
+                running_count += 1
+                running_id.append(dag_run.run_id)
+    if running_count > 1:
+        running = True
+        run_flag = True
+    if running or run_flag:
+        raise AirflowException(f"{dag_id}: {running_id} are running - skipping the current run")
+
+
+def get_connectors_from_host():
+    # get test passed connectors from update manager API
+    result = []
+    resp = requests.get(f'http://{host_ip}:8000/update-manager/api/connector/list')
+    resp.raise_for_status()
+    for item in resp.json():
+        result.append({'service': item['service'], 'connector': item['connector'], 'profile': item['profile_db_id']})
+    if result and len(result) > 0:
+        logging.info('got result from local_connector_configuration')
+        result = [i for n, i in enumerate(result) if i not in result[n + 1:]]
+    return result
+
+
+def get_connectors():
+    # merge connectors from db and settings and remove duplicates
+    connectors = get_connectors_from_host()
+    resp = requests.get(f'http://{host_ip}:8000/update-manager/api/versions')
+    resp.raise_for_status()
+    local_settings = resp.json()
+    for item in connectors:
+        if not local_settings.get('connectors', {}).get(item["connector"], {}).get('version'):
+            logging.error(f'!!!!!!!!!! Missing version for connector-{item["connector"]}')
+            sys.exit(-1)
+        item['version'] = local_settings.get('connectors').get(item["connector"]).get('version')
+    return connectors
+
+
+def start_connectors(*args, **kwargs):
+    logging.info("Start connector data ingestion.")
+    pem_key = get_ssm_pem(host_ip, aws_profile=None)
+    commands = [
+        'cd /usr/lucidum/update-manager/ && sudo su ubuntu -c "/usr/lucidum/venv/bin/python3 /usr/lucidum/update-manager/update_manager.py run-action-test"',
+        'cd /usr/lucidum/update-manager/ && sudo su ubuntu -c "/usr/lucidum/venv/bin/python3 /usr/lucidum/update-manager/update_manager.py run-connector-test"']
+    run_remote_cmds(host_ip, pem_key, commands, username=host_user, keytype='OPENSSH')
+
+
+def end_connectors(*args, **kwargs):
+    # dummy task after all connectors
+    logging.info("End connector data ingestion.")
+
+
+def start_merger(ml_version, **kwargs):
+    logging.info("Start merger process...")
+    # get host network data
+    resp = requests.get(f'http://{host_ip}:8000/update-manager/api/host/network')
+    host_fqdn = resp.json()['host_fqdn']
+    # create merger instance with default 'instance_type': 'x2iezn.6xlarge'
+    # This can be overwritten, e.g., json={'fqdn': host_fqdn, 'instance_type': 'r6a.4xlarge'}
+    resp = requests.post('http://internal.lucidum.cloud:8000/api/ec2-instance/merger',
+                         json={'fqdn': host_fqdn})
+    logging.info(f'create merger response: {resp.json()}')
+    instance_id = resp.json()['instance_id']
+    logging.info('wait 30 seconds for AWS to get ec2 ready')
+    time.sleep(30)
+    # check instance status
+    while True:
+        resp = requests.get(f'http://internal.lucidum.cloud:8000/api/ec2-instance/status?instance_id={instance_id}')
+        logging.info(f'merger instance status response: {resp.json()}')
+        if resp.json()['status'] == 'running':
+            break
+        logging.info('sleep 10 seconds')
+        time.sleep(10)
+    # get instance ip
+    resp = requests.get(f'http://internal.lucidum.cloud:8000/api/ec2-instance/internal-ip?instance_id={instance_id}')
+    logging.info(f'merger instance ip response: {resp.json()}')
+    remote_ip = resp.json()['ip']
+    # run cmds on remote merger instance
+    logging.info(f"from {host_ip} connect to {remote_ip} update merger to version: {ml_version}")
+    commands = ["cd /usr/lucidum/update-manager/ && git pull",
+                f"/usr/lucidum/venv/bin/python3 /usr/lucidum/update-manager/update_manager.py installecr -c python/ml:{ml_version}",
+                "docker images"]
+    resp = requests.get('http://internal.lucidum.cloud:8000/api/ec2-instance/merger/config')
+    ssh_key_pem = resp.json()['ssh_key_pem']
+    run_remote_cmds(remote_ip, ssh_key_pem, commands)
+    # use xcom to pass value to next task
+    ti = kwargs['ti']
+    ti.xcom_push(key='remote_ip', value=remote_ip)
+    ti.xcom_push(key='instance_id', value=instance_id)
+    ti.xcom_push(key='ssh_key_pem', value=ssh_key_pem)
+
+
+def terminate_merger(ml_version, **kwargs):
+    ti = kwargs['ti']
+    instance_id = ti.xcom_pull(key='instance_id')
+    if not instance_id:
+        logging.info("No instance needs to be terminated.")
+    else:
+        resp = requests.post('http://internal.lucidum.cloud:8000/api/ec2-instance/terminate',
+                             json={'tag_name': 'merger', 'instance_id': instance_id})
+        logging.info(f"terminate instance status: {resp.json()}")
+
+
+def run_merger(cmd, ml_version, **kwargs):
+    # dummy task before starting connectors
+    logging.info(f"Run merger...")
+    ti = kwargs['ti']
+    remote_ip = ti.xcom_pull(key='remote_ip')
+    ssh_key_pem = ti.xcom_pull(key='ssh_key_pem')
+    logging.info(f"remote ip: {remote_ip}")
+    # run cmds on remote merger instance
+    logging.info(f"connect to {remote_ip} run cmd {cmd} on merger version: {ml_version}")
+    commands = [
+        f"docker run --rm -e DYNACONF_DATABASES__mysql__mysql_host={host_ip} -e DYNACONF_DATABASES__mongo__mongo_host={host_ip} -e DYNACONF_MERGER__ui_url=https://{host_ip}/CMDB/api/internal -it python/ml:{ml_version} {cmd}"]
+    run_remote_cmds(remote_ip, ssh_key_pem, commands)
+
+
+def run_connector(cmd, connector, version, privileged, mount, **kwargs):
+    logging.info(f"Run connector-{connector}:{version}: {cmd} ...")
+    ti = kwargs['ti']
+    # get the host pem key from AWS SSM
+    ssh_key_pem = get_ssm_pem(host_ip, aws_profile=None)
+    # run cmds on host instance
+    logging.info(f"connect to {host_ip} run cmd {cmd} on connector version: {version}")
+    base_cmd = "docker run --network=lucidum_default"
+    if mount:
+        base_cmd = base_cmd + f' -v {mount}'
+    if privileged is True:
+        base_cmd = base_cmd + ' --privileged'
+    commands = [
+        f"{base_cmd} --rm -it connector-{connector}:{version} {cmd}"]
+    run_remote_cmds(host_ip, ssh_key_pem, commands, username=host_user, keytype='OPENSSH')
+
+
+default_args = {
+    'owner': 'airflow',
+    'description': 'Schedule DockerOperator',
+    'depend_on_past': False,
+    'start_date': datetime.today() - timedelta(days=2),
+    'email_on_failure': True,
+    'email_on_retry': True,
+    'email': ['support@lucidum.io'],
+    'retries': 2,
+    'retry_delay': timedelta(minutes=5)
+}
+
+# Schedule_interval definition
+# preset: @hourly, @daily, @weekly, @monthly, @yearly
+# .---------------- minute (0 - 59)
+# |  .------------- hour (0 - 23)
+# |  |  .---------- day of month (1 - 31)
+# |  |  |  .------- month (1 - 12) OR jan,feb,mar,apr ...
+# |  |  |  |  .---- day of week (0 - 6) (Sunday=0 or 7) OR sun,mon,tue,wed,thu,fri,sat
+
+with DAG(f'airflow_service_{CUSTOMER}',
+         default_args=default_args,
+         schedule="5 1 * * *",
+         catchup=False) as dag:
+    # Check previous run status:  This task should be the first in any DAG
+    start_check = PythonOperator(
+        task_id='check_run_start', python_callable=check_previous_runs, dag=dag, retries=0)
+
+    end_check = PythonOperator(
+        task_id='check_run_end', python_callable=check_previous_runs, dag=dag,
+        trigger_rule='all_done', retries=0)
+
+    # Define tasks
+    t_connectors_start = PythonOperator(task_id='start_connectors',
+                                        dag=dag,
+                                        python_callable=start_connectors,
+                                        execution_timeout=timedelta(hours=2),
+                                        op_args=[])
+
+    t_connectors_end = PythonOperator(task_id='end_connectors',
+                                      dag=dag,
+                                      trigger_rule='all_done',
+                                      python_callable=end_connectors,
+                                      execution_timeout=timedelta(minutes=10),
+                                      op_args=[])
+
+    resp = requests.get(f'http://{host_ip}:8000/update-manager/api/versions')
+    resp.raise_for_status()
+    local_settings = resp.json()
+
+    if not local_settings.get('merger', {}).get('version'):
+        logging.error(f'!!!!!!!!!! Missing version for merger')
+        sys.exit(-1)
+    ml_version = local_settings.get('merger').get('version')
+    ml_major_version = int(ml_version.split('.')[0].upper().strip('V '))
+
+    t_merger_start = PythonOperator(task_id='start_merger',
+                                    dag=dag,
+                                    python_callable=start_merger,
+                                    execution_timeout=timedelta(minutes=30),
+                                    op_kwargs={'ml_version': ml_version})
+
+    t_merger_end = PythonOperator(task_id='terminate_merger',
+                                  dag=dag,
+                                  python_callable=terminate_merger,
+                                  execution_timeout=timedelta(minutes=10),
+                                  op_kwargs={'ml_version': ml_version})
+
+    m1 = PythonOperator(task_id='run_ml_file',
+                        dag=dag,
+                        python_callable=run_merger,
+                        execution_timeout=timedelta(hours=2),
+                        op_kwargs={'cmd': '/home/run_file_sharing_ml', 'ml_version': ml_version})
+
+    m2 = PythonOperator(task_id='run_ml_network',
+                        dag=dag,
+                        python_callable=run_merger,
+                        execution_timeout=timedelta(hours=2),
+                        op_kwargs={'cmd': '/home/run_network_flow_ml', 'ml_version': ml_version})
+
+    ml_parallel_task = [m1, m2]
+    if ml_major_version >= 3:
+        m3 = PythonOperator(task_id='run_cloud_compliance',
+                            dag=dag,
+                            python_callable=run_merger,
+                            execution_timeout=timedelta(hours=2),
+                            op_kwargs={'cmd': '/home/run_cloud_compliance', 'ml_version': ml_version})
+
+        m4 = PythonOperator(task_id='run_saas_app',
+                            dag=dag,
+                            python_callable=run_merger,
+                            execution_timeout=timedelta(hours=2),
+                            op_kwargs={'cmd': '/home/run_saas_app history', 'ml_version': ml_version})
+
+        ml_parallel_task = ml_parallel_task + [m3, m4]
+
+    d1 = PythonOperator(task_id='run_data_merger',
+                        dag=dag,
+                        python_callable=run_merger,
+                        execution_timeout=timedelta(hours=12),
+                        op_kwargs={'cmd': '/home/run_output_data_merger', 'ml_version': ml_version})
+
+    for item in get_connectors():
+        connector = item['connector']
+        service = item['service']
+        version = item['version']
+        profile = item['profile']
+        connector_privileged = False
+        if connector in ['sdk']:
+            connector_privileged = True
+        connector_task = PythonOperator(task_id=f'run_{connector}_{service}_{profile}',
+                                        dag=dag,
+                                        python_callable=run_connector,
+                                        execution_timeout=timedelta(hours=6),
+                                        op_kwargs={'cmd': f'/tmp/app/lucidum_{connector} run-adhoc {service} {profile}',
+                                                   'connector': connector, 'version': version,
+                                                   'privileged': connector_privileged, 'mount': None}
+                                        )
+
+        t_connectors_start.set_downstream(connector_task)
+        connector_task.set_downstream(t_connectors_end)
+
+    start_check >> t_connectors_start >> t_connectors_end >> end_check >> t_merger_start >> ml_parallel_task >> d1 >> t_merger_end

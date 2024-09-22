@@ -678,6 +678,7 @@ def get_all_connector_list_from_db():
             result.append({'service': service['service'],
                            'service_display_name': service.get('display_name', service['service']),
                            'service_status': service.get('activity', False),
+                           'test_status': service.get('status', None),
                            'connector': item['connector_name'],
                            'profile_db_id': str(item['_id']),
                            'profile_name': item['profile_name'],

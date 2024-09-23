@@ -183,6 +183,7 @@ class TunnelClientModel(BaseModel):
     client_name: str
 
 
+'''
 class AirflowSetupModel(BaseModel):
     customer_name: str
     customer_ip: str
@@ -222,6 +223,7 @@ def setupairflow(component: AirflowSetupModel):
         "status": "OK",
         "message": "success",
     }
+'''
 
 
 @api_router.get("/healthcheck", tags=["health"])

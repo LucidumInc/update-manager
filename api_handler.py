@@ -37,7 +37,8 @@ from docker_service import start_docker_compose, stop_docker_compose, list_docke
     get_docker_compose_logs, run_docker_container, get_docker_container
 from exceptions import AppError
 from healthcheck_handler import get_health_information
-from install_handler import install_image_from_ecr, update_docker_compose_file, update_airflow_settings_file, get_image_and_version
+from install_handler import install_image_from_ecr, update_docker_compose_file, update_airflow_settings_file, \
+    get_image_and_version
 import license_handler
 from sqlalchemy import create_engine
 
@@ -55,7 +56,9 @@ templates = Jinja2Templates(directory="templates")
 
 import pydantic
 from bson.objectid import ObjectId
-pydantic.json.ENCODERS_BY_TYPE[ObjectId]=str
+
+pydantic.json.ENCODERS_BY_TYPE[ObjectId] = str
+
 
 class MongoDBClient:
     _mongo_db = "test_database"
@@ -363,6 +366,7 @@ def archive_directory(filepath: str, dir_name: str) -> None:
         delete_file(filepath)
         raise
 
+
 @api_router.get("/connector/mapping")
 def get_connector_mapping():
     result = []
@@ -381,6 +385,23 @@ def get_services_statuses_():
     return {
         "data": statuses,
     }
+
+
+@api_router.get("/versions")
+def get_product_version():
+    lucidum_dir = get_lucidum_dir()
+    airflow_settings_file_path = os.path.join(lucidum_dir, "airflow", "dags", "settings.yml")
+    if not os.path.isfile(airflow_settings_file_path):
+        logger.warning("'{}' file does not exist", airflow_settings_file_path)
+        return
+    with open(airflow_settings_file_path) as f:
+        data = yaml.full_load(f)
+    if "global" in data:
+        return data["global"]
+    else:
+        logger.warning("'global' key is not found within airflow settings")
+        return
+
 
 def get_connector_version(connector_type: str) -> Optional[str]:
     lucidum_dir = get_lucidum_dir()
@@ -419,22 +440,25 @@ def run_connector_test_command(connector_type: str, technology: str, profile_db_
         return JSONResponse(content={"status": "FAILED", "output": "can't find image version"}, status_code=404)
     image = f"connector-{connector_type}:{connector_version}"
     # api and sdk connections has technology
-    command = f'bash -c "python lucidum_{connector_type}.py test {technology} {profile_db_id}:{trace_id}"'    
-    if connector_type not in ['api', 'sdk']: # cloud connectors default test all services
+    command = f'bash -c "python lucidum_{connector_type}.py test {technology} {profile_db_id}:{trace_id}"'
+    if connector_type not in ['api', 'sdk']:  # cloud connectors default test all services
         command = f'bash -c "python lucidum_{connector_type}.py test {profile_db_id}:{trace_id}"'
     # only connector-sdk need docker privilege to access host network
     docker_privileged = False
     if connector_type in ['sdk']:
         docker_privileged = True
     out = run_docker_container(
-        image, stdout=True, stderr=True, remove=True, network="lucidum_default", privileged=docker_privileged, command=command
+        image, stdout=True, stderr=True, remove=True, network="lucidum_default", privileged=docker_privileged,
+        command=command
     )
     if trace_id:
-        _db_client.client['test_database']['connector_test_result'].update_one({"trace_id": trace_id}, {"$set": {"last_tested_at": datetime.now(tz=timezone.utc)}})
+        _db_client.client['test_database']['connector_test_result'].update_one({"trace_id": trace_id}, {
+            "$set": {"last_tested_at": datetime.now(tz=timezone.utc)}})
     return {
         "status": "OK",
         "output": out.decode(),
     }
+
 
 def get_local_connectors():
     result = []
@@ -450,6 +474,7 @@ def get_local_connectors():
             for connector in connectors:
                 result.append({"type": connector, "version": connectors[connector]['version']})
     return result
+
 
 @api_router.get("/connector/config-to-db")
 def run_connector_config_to_db():
@@ -467,9 +492,11 @@ def run_connector_config_to_db():
         })
     return result
 
+
 @api_router.get("/images")
 def get_docker_image_and_version():
     return get_image_and_version()
+
 
 @api_router.post("/tunnel/clients")
 def generate_client_configuration(tunnel_client: TunnelClientModel):
@@ -497,6 +524,7 @@ def generate_client_configuration(tunnel_client: TunnelClientModel):
     headers = {"Content-Disposition": f"attachment; filename={client_name}.conf"}
     return Response(content=export_result.output, headers=headers, media_type="text/plain")
 
+
 def get_tunnel_client_dict():
     container = get_docker_container("tunnel")
     client_list_cmd = "ovpn_listclients"
@@ -511,6 +539,7 @@ def get_tunnel_client_dict():
             items = record.split(',')
             clients[items[0]] = parser.parse(items[2]).isoformat()
     return clients
+
 
 @api_router.get("/tunnel/clients")
 def get_clients():
@@ -547,7 +576,7 @@ def get_clients():
         if name not in routing_table:
             clients.append({'name': name, 'status': 'disconnected', 'config_expire_date': expire_date})
 
-    return {"clients": clients,}
+    return {"clients": clients, }
 
 
 def filter_connector_metrics(from_: str = Query(None, alias='from'), to_: str = Query(None, alias='to')):
@@ -572,8 +601,10 @@ def get_connector_metric(filters: dict = Depends(filter_connector_metrics)):
     collections = db_client.client[db_client._mongo_db]['metrics'].find(filters)
     return {"data": list(collections)}
 
+
 def get_fqdn():
     return f"{socket.gethostname()}.lucidum.cloud"
+
 
 @api_router.get("/connector/list")
 def get_connector_list_from_db():
@@ -589,9 +620,31 @@ def get_connector_list_from_db():
                                'service_display_name': service.get('display_name', service['service']),
                                'connector': item['connector_name'],
                                'profile_db_id': str(item['_id']),
+                               'profile_name': item['profile_name'],
                                'bridge_name': item['bridge_name'],
                                'bridge_display_name': item.get('display_name', item['bridge_name'])
-                              })
+                               })
+    return result
+
+@api_router.get("/connector/listall")
+def get_all_connector_list_from_db():
+    result = []
+    db_client = MongoDBClient()
+    collection_name = 'local_connector_configuration'
+    collection = db_client.client[db_client._mongo_db][collection_name]
+    for item in collection.find():
+        for service in item.get('services_list', []):
+            result.append({'service': service['service'],
+                           'service_display_name': service.get('display_name', service['service']),
+                           'service_status': service.get('activity', False),
+                           'test_status': service.get('status', None),
+                           'connector': item['connector_name'],
+                           'profile_db_id': str(item['_id']),
+                           'profile_name': item['profile_name'],
+                           'profile_status': item.get('active', False),
+                           'bridge_name': item['bridge_name'],
+                           'bridge_display_name': item.get('display_name', item['bridge_name'])
+                          })
     return result
 
 def parse_web_log(date_str, user_email_dict):
@@ -621,6 +674,7 @@ def parse_web_log(date_str, user_email_dict):
                 })
 
     return result
+
 
 def parse_login_data(date_str: str, user_email_dict: dict) -> dict:
     """
@@ -702,6 +756,7 @@ def parse_login_data(date_str: str, user_email_dict: dict) -> dict:
 
     return result
 
+
 @api_router.get("/ui/login/metrics")
 def get_ui_login_metrics() -> list:
     """
@@ -726,6 +781,7 @@ def get_ui_login_metrics() -> list:
 
     return result
 
+
 @api_router.get("/data/values", tags=['dataValues'])
 def get_data_values(collection, field):
     db_client = MongoDBClient()
@@ -743,12 +799,14 @@ def get_data_values(collection, field):
                 result["values"][record['_id']] = result["values"].get(record['_id'], 0) + record['count']
     return result
 
+
 @api_router.get("/host/network")
 def get_host_network():
     result = {}
     result['host_ip'] = socket.gethostbyname(socket.gethostname() + ".local")
     result['host_fqdn'] = f"{socket.gethostname()}.lucidum.cloud"
     return result
+
 
 @root_router.get("/setup", response_class=HTMLResponse, tags=["setup"])
 def get_setup(request: Request):

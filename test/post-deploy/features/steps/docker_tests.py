@@ -25,9 +25,18 @@ def step_impl(context):
   docker_images = []
 
   for local_image in client.images.list():
-    docker_images.append(local_image.tags[0])
+    # Updated airflow images use an environment variable so strip that off.
+    if "AIRFLOW_IMAGE_NAME" in local_image.tags[0]:
+      image_name = local_image.tags[0].split(":-", 1)[1].rstrip("}")
+      docker_images.append(image_name)
+    else:
+      docker_images.append(local_image.tags[0])
 
   for compose_container in context.docker_containers:
+    # Updated airflow images use an environment variable so strip that off.
+    if "AIRFLOW_IMAGE_NAME" in compose_container:
+      compose_container = compose_container.split(":-", 1)[1].rstrip("}")
+
     if compose_container not in docker_images:
       assert context.failed is True
 
@@ -37,8 +46,17 @@ def step_impl(context):
   local_containers = []
 
   for container in client.containers.list():
-    local_containers.append(container.image.tags[0])
+    # Updated airflow images use an environment variable so strip that off.
+    if "AIRFLOW_IMAGE_NAME" in container.image.tags[0]:
+      image_name = container.image.tags[0].split(":-", 1)[1].rstrip("}")
+      local_containers.append(image_name)
+    else:
+      local_containers.append(container.image.tags[0])
 
   for compose_container  in context.docker_containers:
+    # Updated airflow images use an environment variable so strip that off.
+    if "AIRFLOW_IMAGE_NAME" in compose_container:
+      compose_container = compose_container.split(":-", 1)[1].rstrip("}")
+
     if compose_container not in local_containers:
       assert context.failed is True

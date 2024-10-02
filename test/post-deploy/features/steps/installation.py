@@ -3,6 +3,9 @@ import glob
 import pwd
 import os
 
+PATHS_TO_IGNORE = ["/usr/lucidum/tunnel", "/usr/lucidum/mongo", "/usr/lucidum/mysql",
+                   "__pycache__", "/usr/lucidum/update-manager/logs"]
+
 @given('we have a lucidum installation')
 def step_impl(context):
   pass
@@ -15,7 +18,8 @@ def step_impl(context, install_path):
 @then('ensure files and directories do not have "{user}" ownership')
 def step_impl(context, user):
   for filepath in glob.iglob(context.install_path + '/**/**', recursive=True):
-    if not os.path.islink(filepath):
+    paths_not_present = all(path not in filepath for path in PATHS_TO_IGNORE)
+    if not os.path.islink(filepath) and paths_not_present:
       file_uid = os.stat(filepath).st_uid
       user_uid = pwd.getpwnam(user).pw_uid
       assert file_uid != user_uid

@@ -35,6 +35,10 @@ def run(source, destination, drop=False, override=False, upsert_fields='_id'):
     if destination.lower() == 'smart_label':
         db_client = MongoDBClient()
         smartlabel_table = db_client.client[db_client._mongo_db][destination]
+        field_display_local_table = db_client.client[db_client._mongo_db]['field_display_local']
+        vosl_list = smartlabel_table.find({'created_by': 'lucidum_vosl'})
+        for vosl in vols_list:
+            field_display_local_table.delete_many({'field_name': vosl['field_name']})
         d = smartlabel_table.delete_many({'created_by': 'lucidum_vosl'})
         logger.info(f"{d.deleted_count} old VOSL records deleted!")
 

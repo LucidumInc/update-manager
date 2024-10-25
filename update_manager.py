@@ -122,7 +122,7 @@ def migrate_vod():
     from handlers.mongo_import import run
     run('postReport.json', 'biQuery_lucidum_report', drop=True)
     run('postDashboard.json', 'biQuery_lucidum_dashboard', drop=True)
-    run('postDynamicFieldDef.json', 'smart_label', override=True, upsert_fields='field_name')
+    run('postDynamicFieldDef.json', 'smart_label', override=True, upsert_fields='field_name,created_by')
     run('postDynamicFieldDisplay.json', 'field_display_local', override=True, upsert_fields='field_name')
     run('postSavedQuery.json', 'Query_Builder', override=True, upsert_fields='name')
 

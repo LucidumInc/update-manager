@@ -42,8 +42,8 @@ def get_active_connector_profiles():
                                 'profile_id': str(item["_id"])
                                 })
     if results and len(results) > 0:
-        logger.info(f'got {len(results)} results from database {connector_table_name}')
         results = [i for n, i in enumerate(results) if i not in results[n + 1:]]
+        logger.info(f'got {len(results)} results from database {connector_table_name}')
     return results
 
 

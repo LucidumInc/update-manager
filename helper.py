@@ -31,33 +31,48 @@ def get_all_connector_profiles():
     return result
 
 
+def get_active_connector_profiles():
+    results = []
+    for item in connector_table.find({'active': True}):
+        for service in item.get('services_list', []):
+            if service.get('activity', None) is True:
+                results.append({'bridge_name': item['bridge_name'],
+                                'connector_name': item['connector_name'],
+                                'profile_name': item['profile_name'],
+                                'profile_id': str(item["_id"])
+                                })
+    if results and len(results) > 0:
+        logger.info(f'got {len(results)} results from database {connector_table_name}')
+        results = [i for n, i in enumerate(results) if i not in results[n + 1:]]
+    return results
+
+
 def run_connector_profile_test():
-    result = get_all_connector_profiles()
+    result = get_active_connector_profiles()
     for record in result:
-        if record['profile_enabled'] and record['service_enabled']:
-            logger.info(f"test connector: {record}")
-            trace_id = uuid.uuid4().hex
-            url = f"http://localhost:8000/update-manager/api/connector/{record['connector_name']}/test/{record['bridge_name']}?profile_db_id={record['profile_id']}&trace_id={trace_id}"
-            resp = requests.get(url)
-            collection = connector_test_result_table
-            test_results = collection.find_one({'trace_id': trace_id})
-            if not test_results:
-                logger.info('no test result')
-                continue
-            logger.info(f"test connector result: {test_results}")
-            connector_config = connector_table.find_one({'_id': ObjectId(test_results['profile_db_id'])})
-            can_update = False
-            for test_result in test_results['test_result']:
-                for service in connector_config['services_list']:
-                    if test_result['name'] == service['service']:
-                        service['status'] = test_result['status']
-                        service['message'] = test_result['message']
-                        can_update = True
-            if can_update:
-                collection.update_one({"_id": ObjectId(test_results['profile_db_id'])}, {
-                    "$set": {"services_list": connector_config['services_list'], "last_tested_at": datetime.now()}})
-                logger.info(f"DB test result updated.")
-            logger.info(">>> testing connector profile Done.")
+        logger.info(f"test connector: {record}")
+        trace_id = uuid.uuid4().hex
+        url = f"http://localhost:8000/update-manager/api/connector/{record['connector_name']}/test/{record['bridge_name']}?profile_db_id={record['profile_id']}&trace_id={trace_id}"
+        resp = requests.get(url)
+        collection = connector_test_result_table
+        test_results = collection.find_one({'trace_id': trace_id})
+        if not test_results:
+            logger.info('no test result')
+            continue
+        logger.info(f"test connector result: {test_results}")
+        connector_config = connector_table.find_one({'_id': ObjectId(test_results['profile_db_id'])})
+        can_update = False
+        for test_result in test_results['test_result']:
+            for service in connector_config['services_list']:
+                if test_result['name'] == service['service']:
+                    service['status'] = test_result['status']
+                    service['message'] = test_result['message']
+                    can_update = True
+        if can_update:
+            collection.update_one({"_id": ObjectId(test_results['profile_db_id'])}, {
+                "$set": {"services_list": connector_config['services_list'], "last_tested_at": datetime.now()}})
+            logger.info(f"DB test result updated.")
+        logger.info(">>> testing connector profile Done.")
 
 
 def get_all_action_configs():

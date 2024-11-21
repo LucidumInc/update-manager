@@ -13,7 +13,8 @@ from dateutil import parser as dateutil_parser, relativedelta
 from loguru import logger
 from psutil._common import bytes2human
 
-from config_handler import get_aws_config, get_ecr_client
+from config_handler import get_aws_config, get_ecr_client, get_mongo_config
+from connector_handler import MongoDBClient
 from docker_service import list_docker_containers, get_container_stats
 from exceptions import AppError
 
@@ -124,6 +125,19 @@ def check_cron_health() -> dict:
         result["status"] = "FAILED"
         result["message"] = str(e)
 
+    return result
+
+
+def check_mongo_health() -> dict:
+    result = {}
+    try:
+        mongo_config = get_mongo_config()
+        mongo_client = MongoDBClient(**mongo_config)
+        result = mongo_client.client[mongo_config.get("mongo_db", "test_database")].command("dbstats")
+    except Exception as e:
+        logger.exception("Error during getting status of mongo: {}", e)
+        result["message"] = str(e)
+        result["status"] = "FAILED"
     return result
 
 
@@ -251,6 +265,13 @@ class CronServiceInfoCollector(BaseInfoCollector):
 
     def __call__(self):
         return check_cron_health()
+
+
+class MongoInfoCollector(BaseInfoCollector):
+    name = "mongo"
+
+    def __call__(self):
+        return check_mongo_health()
 
 
 def generate_secret_string(value: str, last_visible: int = 4) -> str:

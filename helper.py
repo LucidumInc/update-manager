@@ -69,7 +69,7 @@ def run_connector_profile_test():
                     service['message'] = test_result['message']
                     can_update = True
         if can_update:
-            collection.update_one({"_id": ObjectId(test_results['profile_db_id'])}, {
+            connector_table.update_one({"_id": ObjectId(test_results['profile_db_id'])}, {
                 "$set": {"services_list": connector_config['services_list'], "last_tested_at": datetime.now()}})
             logger.info(f"DB test result updated.")
         logger.info(">>> testing connector profile Done.")

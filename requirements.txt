@@ -39,3 +39,4 @@ pycryptodomex==3.19.1
 SQLAlchemy==1.4.26
 openvpn-status==0.2.1
 zipp==3.19.1
+dnspython>=2.6.1 # not directly required, pinned by Snyk to avoid a vulnerability

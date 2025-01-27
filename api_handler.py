@@ -17,7 +17,7 @@ from bson.json_util import dumps
 import shutil
 import yaml
 from openvpn_status import parse_status
-from pymongo import MongoClient
+from pymongo import MongoClient, errors
 from urllib.parse import quote_plus
 
 import uvicorn
@@ -811,6 +811,61 @@ def get_host_network():
 @root_router.get("/setup", response_class=HTMLResponse, tags=["setup"])
 def get_setup(request: Request):
     return templates.TemplateResponse("index.html.jinja2", {"request": request})
+
+
+@api_router.get("/user/list")
+def get_ui_users() -> list:
+    """
+    Returns a list of dictionaries, each detailing a Lucidum UI user, on the Lucidum stack.
+
+    :returns: list
+    """
+
+    sort_order = list({
+        'created_date': 1
+    }.items())
+
+    projection = {
+        'login': 1,
+        'email': 1,
+        'is_sso_user': 1,
+        'locked': 1
+    }
+
+    user_list = []
+    db_client = None
+    all_users = None
+
+    try:
+        db_client = MongoDBClient()
+        all_users = db_client.client[db_client._mongo_db]['jhi_user'].find(
+            projection=projection,
+            sort=sort_order
+        )
+
+    except errors.ConnectionFailure as ex:
+        logger.warning(f"Failed to query the list of users from Mongo (ConnectionFailure): {ex}")
+
+    except errors.PyMongoError as ex:
+        logger.warning(f"Failed to query the list of users from Mongo (PyMongoError): {ex}")
+
+    if ((all_users is None) or (0 == len(all_users))):
+        logger.warning("No users returned from the 'jhi_user' database table!")
+        return user_list
+
+    active_users = list(all_users)
+    for user in active_users:
+
+        user_list.append(
+            {
+                'login': user.get('login'),
+                'email': user.get('email', ''),
+                'is_sso_user': user.get('is_sso_user', False),
+                'locked': user.get('locked', False)
+            }
+        )
+
+    return user_list
 
 
 def startup_event() -> None:

@@ -849,7 +849,7 @@ def get_ui_users() -> list:
     except errors.PyMongoError as ex:
         logger.warning(f"Failed to query the list of users from Mongo (PyMongoError): {ex}")
 
-    if ((all_users is None) or (0 == len(all_users))):
+    if (not all_users.alive):
         logger.warning("No users returned from the 'jhi_user' database table!")
         return user_list
 

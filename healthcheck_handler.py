@@ -68,6 +68,8 @@ def get_disk_usage(path: str) -> dict:
         value = getattr(data, name)
         if name != "percent":
             value = bytes2human(value)
+        else:
+            value = f"{value}%"
         disk[name] = value
     return disk
 
@@ -222,7 +224,7 @@ class DiskUsageInfoCollector(SystemInfoCollector):
 
     def __call__(self):
         disk = get_disk_usage("/")
-        return disk["total"]
+        return [f"{key}: {value}" for key, value in disk.items()]
 
 
 class CPUUsageInfoCollector(SystemInfoCollector):

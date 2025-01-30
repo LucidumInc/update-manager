@@ -647,6 +647,81 @@ def get_all_connector_list_from_db():
                           })
     return result
 
+
+@api_router.get("/connector/listall/configured")
+def get_configured_connectors() -> list:
+    """
+    Returns a list of dictionaries each representing a configured service for a Connector profile.
+    For those connectors without services, only a single service result will be returned showing
+    invalid service information (e.g. "N/A"). These are Beta connectors with no code behind them.
+
+    NOTE: This method allows us to query all the connectors that are shown in the following states
+    in the UI (for monitoring purposes):
+    - Error
+    - Disabled
+    - Enabled
+
+    :params: None
+    :returns: list
+    """
+
+    result = []
+    db_client = MongoDBClient()
+    collection_name = "local_connector_configuration"
+    collection = db_client.client[db_client._mongo_db][collection_name]
+
+    connector_query_results = None
+    try:
+        connector_query_results = collection.find()
+
+    except errors.ConnectionFailure as ex:
+        logger.warning("Failed to query the list of connectors from Mongo (ConnectionFailure): "
+                       f"{ex}")
+
+    except errors.PyMongoError as ex:
+        logger.warning(f"Failed to query the list of connectors from Mongo (PyMongoError): {ex}")
+
+    if ((connector_query_results is None) or (not connector_query_results.alive)):
+        logger.warning(f"No connector information returned from the '{collection_name}' "
+                       "database table!")
+        return result
+
+    for item in connector_query_results:
+        services_list = item.get("services_list", [])
+
+        # Beta connectors will not have services unless development has added code for this
+        # customer. Add 'N/A' for all service-related details along with relevant connector
+        # details to the returned output.
+        if (0 == len(services_list)):
+            result.append({
+                "service": "N/A",
+                "service_display_name": "N/A",
+                "service_status": "N/A",
+                "test_status": "N/A",
+                "connector": item["connector_name"],
+                "profile_db_id": str(item["_id"]),
+                "profile_name": item["profile_name"],
+                "profile_status": item.get("active", False),
+                "bridge_name": item["bridge_name"],
+                "bridge_display_name": item.get("display_name", item["bridge_name"])
+                })
+        else:
+            for service in services_list:
+                result.append({
+                    "service": service["service"],
+                    "service_display_name": service.get("display_name", service["service"]),
+                    "service_status": service.get("activity", False),
+                    "test_status": service.get("status", None),
+                    "connector": item["connector_name"],
+                    "profile_db_id": str(item["_id"]),
+                    "profile_name": item["profile_name"],
+                    "profile_status": item.get("active", False),
+                    "bridge_name": item["bridge_name"],
+                    "bridge_display_name": item.get("display_name", item["bridge_name"])
+                    })
+    return result
+
+
 def parse_web_log(date_str, user_email_dict):
     cmd = f'sudo cat /usr/lucidum/web/app/logs/logFile.{date_str}.log'
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)

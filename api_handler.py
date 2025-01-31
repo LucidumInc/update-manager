@@ -943,6 +943,60 @@ def get_ui_users() -> list:
     return user_list
 
 
+@api_router.get("/action/listall/configured")
+def get_configured_actions() -> list:
+    """
+    Returns a list of dictionaries each representing an action profile that is configured on the
+    Lucidum stack.
+
+    NOTE: This method allows us to query all the actions that are shown in the following states
+    in the UI (for monitoring purposes):
+    - Error
+    - Disabled
+    - Enabled
+
+    :params: None
+    :returns: list
+    """
+
+    configured_action_profiles = []
+    db_client = MongoDBClient()
+    collection_name = "action_schedule"
+    collection = db_client.client[db_client._mongo_db][collection_name]
+
+    mongo_query_results = None
+    try:
+        mongo_query_results = collection.find()
+
+    except errors.ConnectionFailure as ex:
+        logger.warning("Failed to query the list of actions from Mongo (ConnectionFailure): "
+                       f"{ex}")
+
+    except errors.PyMongoError as ex:
+        logger.warning(f"Failed to query the list of actions from Mongo (PyMongoError): {ex}")
+
+    if ((mongo_query_results is None) or (not mongo_query_results.alive)):
+        logger.warning(f"No action information returned from the '{collection_name}' "
+                       "database table!")
+        return configured_action_profiles
+
+    for item in mongo_query_results:
+        integration_params = item.get("integration_params", None)
+        params = integration_params[0]
+
+        configured_action_profiles.append({
+            "profile_name": item.get("query_name"),
+            "action_id": item.get("_id"),
+            "profile_db_id": params.get("profile_id"),
+            "profile_status": item.get("schedule_status", "STOP"),
+            "profile_schedule": item.get("schedule_type"),
+            "bridge_name": params.get("bridge_name"),
+            "config_name": params.get("config_name")
+            })
+
+    return configured_action_profiles
+
+
 def startup_event() -> None:
     setup_logging()
 

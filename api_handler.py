@@ -1064,7 +1064,6 @@ def get_action_results(lookback_sync_time_in_hours: int = 24) -> list:
             '_utc': item.get('_utc'),
             'action_recurrence_type': item.get('action_type'), # 'Schedule', 'Data'
             'action_type': item.get('action_name'), # The "Action Type" as it appears in the UI.
-            'action_detail': item.get('action_detail'),
             'result_status': item.get('status'), # 'SUCCESS', 'Not Run', 'FAILED'
             'created_ts': item.get('created_ts')
         })

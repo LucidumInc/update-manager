@@ -3,6 +3,7 @@ import glob
 import json
 import subprocess
 import uuid
+import pytz
 from datetime import datetime, timezone, timedelta
 
 import base64
@@ -995,6 +996,87 @@ def get_configured_actions() -> list:
             })
 
     return configured_action_profiles
+
+
+@api_router.get("/action/results")
+def get_action_results(lookback_sync_time_in_hours: int = 24) -> list:
+    """
+    Returns a list of dictionaries each representing an action profile that executed on the Lucidum
+    stack within the last X hours.
+
+    :param: lookback_sync_time_in_hours int: Hours in the past to search for metric results.
+    :returns: list
+    """
+
+    db_client = MongoDBClient()
+    collection_name = "action_job"
+    collection = db_client.client[db_client._mongo_db][collection_name]
+
+    end_time = datetime.now(pytz.utc)
+    start_time = end_time - timedelta(hours=lookback_sync_time_in_hours)
+
+    # NOTE: Results that are in a "Pending" state will get picked up on the next iteration of this
+    # query. That is because "_utc" is not set until the action is complete.
+    filter = {
+        '$and': [
+            {
+                "_utc": { "$exists": True }
+            },
+            {
+                "_utc": { "$gte": start_time }
+            },
+            {
+                "integrationSystem": { "$exists": True }
+            },
+            {
+                "status": { "$exists": True }
+            },
+            {
+                "status": { "$ne": "Not Run"}
+            }
+        ]
+    }
+
+    sort = list({
+        'created_at': -1
+    }.items())
+
+    action_job_results = []
+    mongo_query_results = None
+    try:
+        mongo_query_results = collection.find(filter=filter, sort=sort)
+
+    except errors.ConnectionFailure as ex:
+        logger.warning("Failed to query the list of action results from Mongo (ConnectionFailure): "
+                       f"{ex}")
+
+    except errors.PyMongoError as ex:
+        logger.warning("Failed to query the list of action results from Mongo (PyMongoError): "
+                       f"{ex}")
+
+    if ((mongo_query_results is None) or (not mongo_query_results.alive)):
+        logger.warning(f"No action result information returned from the '{collection_name}' "
+                       "database table!")
+        return action_job_results
+
+    for item in mongo_query_results:
+        # "integrationSystem" is like "bridge_name"
+        action_name = item.get("integrationSystem")
+
+        action_job_results.append({
+            'action_name': action_name,
+            'result_id': item.get('_id'), # Used to uniquely identify this result.
+            'action_id': item.get('action_id'),
+            '_utc': item.get('_utc'),
+            'action_recurrence_type': item.get('action_type'), # 'Schedule', 'Data'
+            'action_type': item.get('action_name'), # The "Action Type" as it appears in the UI.
+            'action_detail': item.get('action_detail'),
+            'result_status': item.get('status'), # 'SUCCESS', 'Not Run', 'FAILED'
+            'created_ts': item.get('created_ts')
+        })
+
+    logger.info(f"Number of Action Result metrics returned: '{len(action_job_results)}'.")
+    return action_job_results
 
 
 def startup_event() -> None:

@@ -2,7 +2,6 @@ import socket
 import glob
 import json
 import subprocess
-import uuid
 import pytz
 from datetime import datetime, timezone, timedelta
 
@@ -13,9 +12,7 @@ import logging
 import importlib
 import requests
 from typing import Optional, List
-from bson.json_util import dumps
 
-import shutil
 import yaml
 from openvpn_status import parse_status
 from pymongo import MongoClient, errors
@@ -23,16 +20,15 @@ from urllib.parse import quote_plus
 
 import uvicorn
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Query, Depends
-from fastapi.responses import JSONResponse, HTMLResponse, FileResponse, Response
+from fastapi.responses import JSONResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from loguru import logger
 from pydantic import BaseModel, validator
-from starlette.background import BackgroundTask
 from openvpn_status_parser import revertDatetimeFormat
 
-from config_handler import get_lucidum_dir, get_airflow_db_config, get_images, get_mongo_config, get_ecr_token, \
-    get_key_dir_config, get_ecr_url, get_ecr_client, get_aws_config, get_ecr_base, get_source_mapping_file_path
+from config_handler import get_lucidum_dir, get_images, get_mongo_config, get_ecr_token, \
+    get_ecr_url, get_ecr_client, get_aws_config, get_ecr_base, get_source_mapping_file_path
 from docker_service import start_docker_compose, stop_docker_compose, list_docker_compose_containers, \
     start_docker_compose_service, stop_docker_compose_service, restart_docker_compose, restart_docker_compose_service, \
     get_docker_compose_logs, run_docker_container, get_docker_container
@@ -41,9 +37,7 @@ from healthcheck_handler import get_health_information
 from install_handler import install_image_from_ecr, update_docker_compose_file, update_airflow_settings_file, \
     get_image_and_version
 import license_handler
-from sqlalchemy import create_engine
 
-from rsa import build_key_client
 from service_status_handler import get_services_statuses
 import io
 from dateutil import parser

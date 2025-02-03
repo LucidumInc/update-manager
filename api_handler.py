@@ -993,12 +993,12 @@ def get_configured_actions() -> list:
 
 
 @api_router.get("/action/results")
-def get_action_results(lookback_sync_time_in_hours: int = 24) -> list:
+def get_action_results(hours_ago: int = 24) -> list:
     """
     Returns a list of dictionaries each representing an action profile that executed on the Lucidum
     stack within the last X hours.
 
-    :param: lookback_sync_time_in_hours int: Hours in the past to search for metric results.
+    :param: hours_back int: Hours in the past to search for metric results.
     :returns: list
     """
 
@@ -1007,7 +1007,7 @@ def get_action_results(lookback_sync_time_in_hours: int = 24) -> list:
     collection = db_client.client[db_client._mongo_db][collection_name]
 
     end_time = datetime.now(pytz.utc)
-    start_time = end_time - timedelta(hours=lookback_sync_time_in_hours)
+    start_time = end_time - timedelta(hours=hours_ago)
 
     # NOTE: Results that are in a "Pending" state will get picked up on the next iteration of this
     # query. That is because "_utc" is not set until the action is complete.

@@ -1059,6 +1059,7 @@ def get_action_results(hours_ago: int = 24) -> list:
 
         action_job_results.append({
             'action_name': action_name,
+            'profile_name': item.get('query_name'),
             'result_id': item.get('_id'), # Used to uniquely identify this result.
             'action_id': item.get('action_id'),
             '_utc': item.get('_utc'),

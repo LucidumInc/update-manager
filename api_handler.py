@@ -698,7 +698,8 @@ def get_configured_connectors() -> list:
                 "profile_name": item["profile_name"],
                 "profile_status": item.get("active", False),
                 "bridge_name": item["bridge_name"],
-                "bridge_display_name": item.get("display_name", item["bridge_name"])
+                "bridge_display_name": item.get("display_name", item["bridge_name"]),
+                "last_tested_at": item.get("last_tested_at", None)
                 })
         else:
             for service in services_list:
@@ -713,6 +714,7 @@ def get_configured_connectors() -> list:
                     "profile_status": item.get("active", False),
                     "bridge_name": item["bridge_name"],
                     "bridge_display_name": item.get("display_name", item["bridge_name"])
+                    "last_tested_at": item.get("last_tested_at", None)
                     })
     return result
 

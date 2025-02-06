@@ -1,5 +1,5 @@
 aiocontextvars==0.2.2
-awscli==1.27.90
+awscli==1.19.34
 boto3==1.17.34
 botocore==1.20.34
 cffi==1.14.5
@@ -10,9 +10,9 @@ contextvars==2.4
 docker==4.4.4
 docutils==0.15.2
 dynaconf==3.1.4
-idna==3.7
+idna==2.10
 immutables==0.15
-Jinja2==3.1.4
+Jinja2==2.10.3
 jmespath==0.10.0
 loguru==0.5.3
 MarkupSafe==1.1.1
@@ -22,7 +22,7 @@ pycparser==2.20
 pymongo==4.6.3
 python-dateutil==2.8.1
 PyYAML==5.4.1
-rsa==4.7
+rsa==4.5
 s3transfer==0.3.6
 six==1.15.0
 tabulate==0.8.9

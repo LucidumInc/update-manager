@@ -2,7 +2,7 @@ import socket
 import glob
 import json
 import subprocess
-import uuid
+import pytz
 from datetime import datetime, timezone, timedelta
 
 import base64
@@ -12,9 +12,7 @@ import logging
 import importlib
 import requests
 from typing import Optional, List
-from bson.json_util import dumps
 
-import shutil
 import yaml
 from openvpn_status import parse_status
 from pymongo import MongoClient, errors
@@ -22,16 +20,15 @@ from urllib.parse import quote_plus
 
 import uvicorn
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Query, Depends
-from fastapi.responses import JSONResponse, HTMLResponse, FileResponse, Response
+from fastapi.responses import JSONResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from loguru import logger
 from pydantic import BaseModel, validator
-from starlette.background import BackgroundTask
 from openvpn_status_parser import revertDatetimeFormat
 
-from config_handler import get_lucidum_dir, get_airflow_db_config, get_images, get_mongo_config, get_ecr_token, \
-    get_key_dir_config, get_ecr_url, get_ecr_client, get_aws_config, get_ecr_base, get_source_mapping_file_path
+from config_handler import get_lucidum_dir, get_images, get_mongo_config, get_ecr_token, \
+    get_ecr_url, get_ecr_client, get_aws_config, get_ecr_base, get_source_mapping_file_path
 from docker_service import start_docker_compose, stop_docker_compose, list_docker_compose_containers, \
     start_docker_compose_service, stop_docker_compose_service, restart_docker_compose, restart_docker_compose_service, \
     get_docker_compose_logs, run_docker_container, get_docker_container
@@ -40,9 +37,7 @@ from healthcheck_handler import get_health_information
 from install_handler import install_image_from_ecr, update_docker_compose_file, update_airflow_settings_file, \
     get_image_and_version
 import license_handler
-from sqlalchemy import create_engine
 
-from rsa import build_key_client
 from service_status_handler import get_services_statuses
 import io
 from dateutil import parser
@@ -703,7 +698,8 @@ def get_configured_connectors() -> list:
                 "profile_name": item["profile_name"],
                 "profile_status": item.get("active", False),
                 "bridge_name": item["bridge_name"],
-                "bridge_display_name": item.get("display_name", item["bridge_name"])
+                "bridge_display_name": item.get("display_name", item["bridge_name"]),
+                "last_tested_at": item.get("last_tested_at", None)
                 })
         else:
             for service in services_list:
@@ -717,7 +713,8 @@ def get_configured_connectors() -> list:
                     "profile_name": item["profile_name"],
                     "profile_status": item.get("active", False),
                     "bridge_name": item["bridge_name"],
-                    "bridge_display_name": item.get("display_name", item["bridge_name"])
+                    "bridge_display_name": item.get("display_name", item["bridge_name"]),
+                    "last_tested_at": item.get("last_tested_at", None)
                     })
     return result
 
@@ -995,6 +992,87 @@ def get_configured_actions() -> list:
             })
 
     return configured_action_profiles
+
+
+@api_router.get("/action/results")
+def get_action_results(hours_ago: int = 24) -> list:
+    """
+    Returns a list of dictionaries each representing an action profile that executed on the Lucidum
+    stack within the last X hours.
+
+    :param: hours_back int: Hours in the past to search for metric results.
+    :returns: list
+    """
+
+    db_client = MongoDBClient()
+    collection_name = "action_job"
+    collection = db_client.client[db_client._mongo_db][collection_name]
+
+    end_time = datetime.now(pytz.utc)
+    start_time = end_time - timedelta(hours=hours_ago)
+
+    # NOTE: Results that are in a "Pending" state will get picked up on the next iteration of this
+    # query. That is because "_utc" is not set until the action is complete.
+    filter = {
+        '$and': [
+            {
+                "_utc": { "$exists": True }
+            },
+            {
+                "_utc": { "$gte": start_time }
+            },
+            {
+                "integrationSystem": { "$exists": True }
+            },
+            {
+                "status": { "$exists": True }
+            },
+            {
+                "status": { "$ne": "Not Run"}
+            }
+        ]
+    }
+
+    sort = list({
+        'created_at': -1
+    }.items())
+
+    action_job_results = []
+    mongo_query_results = None
+    try:
+        mongo_query_results = collection.find(filter=filter, sort=sort)
+
+    except errors.ConnectionFailure as ex:
+        logger.warning("Failed to query the list of action results from Mongo (ConnectionFailure): "
+                       f"{ex}")
+
+    except errors.PyMongoError as ex:
+        logger.warning("Failed to query the list of action results from Mongo (PyMongoError): "
+                       f"{ex}")
+
+    if ((mongo_query_results is None) or (not mongo_query_results.alive)):
+        logger.warning(f"No action result information returned from the '{collection_name}' "
+                       "database table!")
+        return action_job_results
+
+    for item in mongo_query_results:
+        # "integrationSystem" is like "bridge_name"
+        action_name = item.get("integrationSystem")
+
+        action_job_results.append({
+            'action_name': action_name,
+            'profile_name': item.get('query_name'),
+            'result_id': item.get('_id'), # Used to uniquely identify this result.
+            'action_id': item.get('action_id'),
+            '_utc': item.get('_utc'),
+            'action_recurrence_type': item.get('action_type'), # 'Schedule', 'Data'
+            'action_type': item.get('action_name'), # The "Action Type" as it appears in the UI.
+            'result_status': item.get('status'), # 'SUCCESS', 'Not Run', 'FAILED'
+            'created_ts': item.get('created_ts')
+        })
+
+    logger.info(f"Number of Action Result metrics returned: '{len(action_job_results)}'.")
+    return action_job_results
 
 
 def startup_event() -> None:

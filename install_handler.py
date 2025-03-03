@@ -27,6 +27,7 @@ DOCKER_COMPOSE_SERVICE_IMAGE_MAPPING = {
     "web": "mvp1_backend",
     "connector-api": "connector-api",
     "action-manager": "action-manager",
+    "global-manager": "global-manager",
 }
 
 # airflow only if image name is different from service name

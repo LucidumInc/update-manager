@@ -28,6 +28,7 @@ DOCKER_COMPOSE_SERVICE_IMAGE_MAPPING = {
     "connector-api": "connector-api",
     "action-manager": "action-manager",
     "global-manager": "global-manager",
+    "nginx": "nginx",
 }
 
 # airflow only if image name is different from service name

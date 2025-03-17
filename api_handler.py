@@ -4,7 +4,7 @@ import json
 import subprocess
 import pytz
 from datetime import datetime, timezone, timedelta
-
+from collections import Counter
 import base64
 import os
 import sys
@@ -28,7 +28,7 @@ from pydantic import BaseModel, validator
 from openvpn_status_parser import revertDatetimeFormat
 
 from config_handler import get_lucidum_dir, get_images, get_mongo_config, get_ecr_token, \
-    get_ecr_url, get_ecr_client, get_aws_config, get_ecr_base, get_source_mapping_file_path
+    get_ecr_url, get_ecr_client, get_aws_config, get_ecr_base, get_source_mapping_file_path, encrpyt_password
 from docker_service import start_docker_compose, stop_docker_compose, list_docker_compose_containers, \
     start_docker_compose_service, stop_docker_compose_service, restart_docker_compose, restart_docker_compose_service, \
     get_docker_compose_logs, run_docker_container, get_docker_container
@@ -105,6 +105,148 @@ class InterceptHandler(logging.Handler):
         logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
 
 
+class LucidumGptQuery:
+    def __init__(self, gpt_key):
+        # Configuration
+        self.config = {
+            "MODEL": "gpt-4o-2024-08-06",
+            "N_OUTPUTS": 100,
+            "TOKEN_LIMIT": 128000,
+            "GPT_KEY": gpt_key
+        }
+        self.system_message = {
+            "role": "developer",
+            "content": "You are a Lucidum advanced user, cyber security expert and experienced MongoDB programmer."
+        }
+        # MongoDB client
+        db_client = MongoDBClient()
+        self.db = db_client.client[db_client._mongo_db]
+        self.field_display_lookup = self._get_field_names()
+
+    def _gpt_request(self, user_message, temperature=0, n=1, frequency_penalty=0, presence_penalty=0):
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.config['GPT_KEY']}"
+        }
+        payload = json.dumps({
+            "model": self.config["MODEL"],
+            "messages": [
+                self.system_message,
+                {"role": "user", "content": user_message}
+            ],
+            "temperature": temperature,
+            "n": n,
+            "frequency_penalty": frequency_penalty,
+            "presence_penalty": presence_penalty
+        })
+        response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, data=payload)
+        return response.json().get("choices", [])
+
+    def _get_field_names(self):
+        field_display_lookup = {}
+        field_display = list(self.db[f"field_display_example"].find()) + list(self.db[f"field_display_local"].find())
+        for display in field_display:
+            if set(display['field_position']) != {'compliance'}:
+                field_display_lookup[display['field_name']] = display.get('friendly_name')
+        logger.info(f"Collect field display names: {len(field_display_lookup)} found.")
+        return field_display_lookup
+
+    def _get_target_table(self, question):
+        response = self._gpt_request(
+            f"For {question}, what is the target table name? If this question is about asset information, "
+            f"answer AWS_CMDB_Output; if about user information, answer User_Combine. "
+            f"Just return the target table name."
+        )
+        return response[0]["message"]["content"].strip() if response else None
+
+    def gpt_mongo_query(self, question):
+        result = None
+        res_list = []
+        try:
+            target_table = self._get_target_table(question)
+            if not target_table:
+                return "Unable to determine the target table. Please check your question."
+            logger.info(f"Create MongoDB connection: Table {target_table}")
+            # Fetch field metadata
+            doc = self.db[f"Metadata_{target_table}"].find()
+            field_list = [{'field': d['field'],
+                           'field description': self.field_display_lookup.get(d['field']),
+                           'type': d['type'],
+                           'value examples': d['values'][:5] if d['values'] else None}
+                          for d in doc]
+            query_message = (
+                f"{question} Create pymongo code using the aggregate pipeline, "
+                f"the table name is {target_table} and select field from the field list {field_list}. "
+                f"The search should be case insensitive without start and end anchors. "
+                f"The search should project no more than 5 fields that are most related to the query. "
+                f"The fields used in the match condition must be included in the project list. "
+                f"No count or summarization is needed in the aggregation unless the question is related to a groupby operation. "
+                f"Return the pipeline list only without any explanation or extra codes."
+            )
+            choices = self._gpt_request(query_message, temperature=0.8, n=10, frequency_penalty=0.2)
+
+            logger.info("Compile MongoDB query")
+            mongo_queries = []
+            if choices:
+                for choice in choices:
+                    content = choice.get('message', {}).get('content').strip()
+                    try:
+                        query = content.split('pipeline = ')[-1].split('\n\n')[0].split('result = ')[0].replace('\n', '').replace('`', '')
+                        if query:
+                            mongo_queries.append(eval(query))
+                    except Exception as e:
+                        logger.warning(f"-- content error: {e} | {content}")
+                        continue
+
+            logger.info(f"Get answers from {len(mongo_queries)} MongoDB queries")
+            for query in mongo_queries:
+                try:
+                    res = list(self.db[target_table].aggregate(query))
+                    res_count = len(res) if res else 0
+                    logger.info(f"-- query: {query} - result: {res_count}")
+                    res_list.append({'res': res, 'count': res_count})
+                except Exception as e:
+                    logger.warning(f"-- query: {query} error: {e}")
+
+            if len(res_list) >= 3:
+                res_count_list = [res['count'] for res in res_list]
+                counter = Counter(res_count_list)
+                counter_pct = [(i, counter[i] / len(res_count_list) * 100.0) for i, count in counter.most_common()]
+                logger.info(f"All Answers: {counter.most_common()}")
+                if counter_pct[0][1] >= 30:
+                    if counter_pct[0][0] == 0 and len(counter_pct) > 1 and counter_pct[1][0] > 0:
+                        result = counter_pct[1][0]
+                    else:
+                        result = counter_pct[0][0]
+                    logger.info(f"Most Possible Count: {result}")
+
+        except Exception as e:
+            logger.warning(f"GPT query error: {e}")
+
+        if result is not None:
+            res_value = min(
+                (res['res'][:self.config['N_OUTPUTS']] for res in res_list
+                 if res['count'] == result and len(str(res['res'][:self.config['N_OUTPUTS']])) < self.config['TOKEN_LIMIT']),
+                key=lambda x: len(str(x)), default=None
+            ) or result
+            logger.info(f"Result - {res_value}")
+
+            value_message = (
+                f"For question {question}, given the MongoDB query output as {res_value}, "
+                f"analyze the output and summarize the answer without mentioning MongoDB or query output. "
+                f"The answer should start with a direct response to the question from the output count of {result}. "
+                f"Provide the detailed output information automatically if user asks for it in the question. "
+                f"Provide as much insight and context as possible related to the question "
+                f"using your Lucidum knowledge and security expertise. "
+                f"Mention that this is AI generated for reference and only the first {self.config['N_OUTPUTS']} "
+                f"outputs are analyzed, need to double-check with Lucidum Query Builder."
+            )
+            answer = self._gpt_request(value_message)[0]['message']['content'].strip()
+            return answer
+        else:
+            return "The answer cannot be determined by GPT. Please use Lucidum Query Builder to create the query."
+
+
 def setup_logging() -> None:
     logger.remove()
     logger.add(sys.stdout, enqueue=True)
@@ -176,6 +318,24 @@ class UpdateComponentVersionModel(BaseModel):
 
 class TunnelClientModel(BaseModel):
     client_name: str
+
+
+class QueryRequest(BaseModel):
+    question: str
+    gpt_key: str
+
+
+@api_router.post("/gpt_query")
+def get_gpt_query(request: QueryRequest):
+    try:
+        helper = LucidumGptQuery(gpt_key=encrpyt_password(request.gpt_key))
+        answer = helper.gpt_mongo_query(request.question)
+        return {"answer": answer}
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        raise HTTPException(status_code=500, detail=f"An internal error occurred: {e}")
 
 
 @api_router.get("/healthcheck", tags=["health"])

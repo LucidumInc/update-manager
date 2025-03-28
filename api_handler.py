@@ -695,6 +695,19 @@ def get_tunnel_client_dict():
             clients[items[0]] = parser.parse(items[2]).isoformat()
     return clients
 
+@api_router.delete("/tunnel/clients")
+def delete_tunnel_client(client_name):
+    tunnel_clients = get_tunnel_client_dict()
+    if client_name in tunnel_clients.keys():
+        container = get_docker_container("tunnel")
+        cmd = f'printf "yes\n" | ovpn_revokeclient {client_name}'
+        result = container.exec_run(['bash', '-c', cmd])
+        tunnel_clients = get_tunnel_client_dict()
+        if client_name in tunnel_clients.keys():
+            logger.error(f'delete {client_name} error: {result.output.decode("utf-8")}')
+        else:
+            return {"client_name": client_name, 'status': 'deleted'}
+    raise HTTPException(status_code=400, detail=f'client_name: {client_name} not found')
 
 @api_router.get("/tunnel/clients")
 def get_clients():

@@ -23,6 +23,7 @@ from fastapi import FastAPI, APIRouter, HTTPException, Request, Query, Depends
 from fastapi.responses import JSONResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fastapi.encoders import ENCODERS_BY_TYPE
 from loguru import logger
 from pydantic import BaseModel, validator
 from openvpn_status_parser import revertDatetimeFormat
@@ -53,7 +54,7 @@ import pydantic
 from bson.objectid import ObjectId
 
 pydantic.json.ENCODERS_BY_TYPE[ObjectId] = str
-
+ENCODERS_BY_TYPE[ObjectId] = str
 
 class MongoDBClient:
     _mongo_db = "test_database"
@@ -607,6 +608,8 @@ def filter_connector_metrics(from_: str = Query(None, alias='from'), to_: str = 
 def get_connector_metric(filters: dict = Depends(filter_connector_metrics)):
     db_client = MongoDBClient()
     collections = db_client.client[db_client._mongo_db]['metrics'].find(filters)
+    return {"data": list(collections)}
+    '''
     result = []
     for item in collections:
         logger.info(item)
@@ -621,6 +624,7 @@ def get_connector_metric(filters: dict = Depends(filter_connector_metrics)):
                 item["profile"]['config']['_id'] = str(item['profile']['config'].pop("_id"))
         result.append(item)
     return {"data": result}
+    '''
 
 def get_fqdn():
     return f"{socket.gethostname()}.lucidum.cloud"

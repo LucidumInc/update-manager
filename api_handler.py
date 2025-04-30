@@ -51,8 +51,8 @@ templates = Jinja2Templates(directory="templates")
 
 import pydantic
 from bson.objectid import ObjectId
-
-pydantic.json.ENCODERS_BY_TYPE[ObjectId] = str
+from fastapi.encoders import ENCODERS_BY_TYPE
+ENCODERS_BY_TYPE[ObjectId] = str
 
 
 class MongoDBClient:

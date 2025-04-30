@@ -607,8 +607,20 @@ def filter_connector_metrics(from_: str = Query(None, alias='from'), to_: str = 
 def get_connector_metric(filters: dict = Depends(filter_connector_metrics)):
     db_client = MongoDBClient()
     collections = db_client.client[db_client._mongo_db]['metrics'].find(filters)
-    return {"data": list(collections)}
-
+    result = []
+    for item in collections:
+        logger.info(item)
+        if item.get("_id"):
+            item["_id"] = str(item.pop("_id"))
+        if item.get("profile") and isinstance(item.get("profile"), dict):
+            if item.get("profile").get("_id"):
+                item["profile"]['_id'] = str(item['profile'].pop("_id"))
+            if item.get("profile").get("mongo_id"):
+                item["profile"]['mongo_id'] = str(item['profile'].pop("mongo_id"))
+            if item.get("profile").get("config") and isinstance(item.get("profile").get("config"), dict) and item.get('profile').get('config').get('_id'):
+                item["profile"]['config']['_id'] = str(item['profile']['config'].pop("_id"))
+        result.append(item)
+    return {"data": result}
 
 def get_fqdn():
     return f"{socket.gethostname()}.lucidum.cloud"

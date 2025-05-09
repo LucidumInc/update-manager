@@ -78,6 +78,44 @@ def get_cpu_count(logical: bool = False) -> int:
     return psutil.cpu_count(logical)
 
 
+# NOTE: Deprecating this method as it is no longer used.
+# def check_ui_health() -> dict:
+#     result = {
+#         "status": "OK",
+#         "message": "This endpoint is deprecated."
+#     }
+
+#     try:
+#         response = requests.get("https://localhost:443/CMDB/api/management/health", verify=False)
+#         response.raise_for_status()
+#         result.update(response.json())
+#     except requests.RequestException as e:
+#         logger.exception("Error when trying to get UI health: {}?!", e)
+#         result["status"] = "FAILED"
+#         result["message"] = str(e)
+
+#     return result
+
+
+# NOTE: Deprecating this method as it is no longer used.
+# def check_airflow_health() -> dict:
+#     result = {
+#         "status": "OK",
+#         "message": "This endpoint is deprecated."
+#     }
+
+#     try:
+#         response = requests.get("http://localhost:9080/health")
+#         response.raise_for_status()
+#         result.update(response.json())
+#     except requests.RequestException as e:
+#         logger.exception("Error when trying to get Airflow health: {}?!", e)
+#         result["status"] = "FAILED"
+#         result["message"] = str(e)
+
+#     return result
+
+
 def get_aws_credentials() -> dict:
     session = boto3.Session()
     credentials = session.get_credentials()
@@ -204,6 +242,31 @@ class CPUUsageInfoCollector(SystemInfoCollector):
 
     def __call__(self):
         return get_cpu_count()
+
+
+class UIInfoCollector(BaseInfoCollector):
+    name = "ui"
+
+    def __call__(self):
+        return {
+            "status": "deprecated",
+            "message": "This endpoint will be removed in a future version."
+        }
+
+        # NOTE: This class of data has been deprecated.
+        # return check_ui_health()
+
+class AirflowInfoCollector(BaseInfoCollector):
+    name = "airflow"
+
+    def __call__(self):
+        return {
+            "status": "deprecated",
+            "message": "This endpoint will be removed in a future version."
+        }
+
+        # NOTE: This class of data has been deprecated.
+        # return check_airflow_health()
 
 
 class CronServiceInfoCollector(BaseInfoCollector):

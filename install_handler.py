@@ -20,7 +20,7 @@ from docker_service import load_docker_images, pull_docker_image, copy_files_fro
     remove_docker_image, list_docker_images, get_docker_image, stop_docker_compose_service
 from exceptions import AppError
 
-_jinja_env = Environment(loader=FileSystemLoader(get_jinja_templates_dir()))
+_jinja_env = Environment(loader=FileSystemLoader(get_jinja_templates_dir()), autoescape=True)
 
 # all service to image mapping should be here in order to be updated
 DOCKER_COMPOSE_SERVICE_IMAGE_MAPPING = {

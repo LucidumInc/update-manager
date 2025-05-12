@@ -218,11 +218,14 @@ def update_ecr_token_config() -> None:
         current_timestamp = int(datetime.now(tz=timezone.utc).timestamp())
         if current_timestamp <= data["expiration"]:
             return
-    ecr_url = get_ecr_url()
-    token = requests.get(f"{ecr_url}/{customer_name}", verify=False)
-    _, public_key = license_handler.reformat_keys(pub_key=public_key)
-    token_dict = {"global": {"ecr_token": license_handler.decrypt(token.json()["ecr_token"], public_key)}}
-    write_settings("settings.toml", token_dict)
+
+    # This code no longer has value as the 'ecr_url' no longer is an endpoint we query. Commenting
+    # it out to reduce Snyk findings.
+    # ecr_url = get_ecr_url()
+    # token = requests.get(f"{ecr_url}/{customer_name}", verify=False)
+    # _, public_key = license_handler.reformat_keys(pub_key=public_key)
+    # token_dict = {"global": {"ecr_token": license_handler.decrypt(token.json()["ecr_token"], public_key)}}
+    # write_settings("settings.toml", token_dict)
 
 
 @api_router.post("/ecr")

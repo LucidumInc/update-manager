@@ -32,15 +32,16 @@ class MongoImportJsonRunner:
 
 @logger.catch(onerror=lambda _: sys.exit(1))
 def run(source, destination, drop=False, override=False, upsert_fields='_id'):
-    if destination.lower() == 'smart_label':
-        db_client = MongoDBClient()
+    db_client = MongoDBClient()
+    if destination.lower() in ['smart_label', 'query_builder']:
         smartlabel_table = db_client.client[db_client._mongo_db][destination]
         field_display_local_table = db_client.client[db_client._mongo_db]['field_display_local']
         vosl_list = smartlabel_table.find({'created_by': 'lucidum_vosl'})
-        for vosl in vosl_list:
-            field_display_local_table.delete_many({'field_name': vosl['field_name']})
+        if destination.lower() == 'smart_label':
+            for vosl in vosl_list:
+                field_display_local_table.delete_many({'field_name': vosl['field_name']})
         d = smartlabel_table.delete_many({'created_by': 'lucidum_vosl'})
-        logger.info(f"{d.deleted_count} old VOSL records deleted!")
+        logger.info(f"{destination}: {d.deleted_count} old value-oriented records deleted!")
 
     import_runner = MongoImportJsonRunner()
     import_runner(source, destination, drop=drop, override=override, upsert_fields=upsert_fields)

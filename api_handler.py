@@ -465,7 +465,7 @@ def run_action_test_command(bridge: str, config_name: str):
     if not action_version:
         return JSONResponse(content={"status": "FAILED", "output": "can't find image version"}, status_code=404)
     image = f"action-manager:{action_version}"
-    command = f'bash -c "python lucidum_action.py test --bridge {bridge} --config_name {config_name}"'
+    command = f'bash -c "python lucidum_action.py test --bridge \\"{bridge}\\" --config_name \\"{config_name}\\""'
     docker_privileged = False
     out = run_docker_container(
         image, stdout=True, stderr=True, remove=True, network="lucidum_default", privileged=docker_privileged,

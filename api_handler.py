@@ -12,7 +12,7 @@ import logging
 import importlib
 import requests
 from typing import Optional, List
-
+import time
 import yaml
 from openvpn_status import parse_status
 from pymongo import MongoClient, errors
@@ -471,10 +471,17 @@ def run_action_test_command(bridge: str, config_name: str):
         image, stdout=True, stderr=True, remove=True, network="lucidum_default", privileged=docker_privileged,
         command=command
     )
-    response_text = out.decode("utf-8").split("response: ")[-1].strip().replace("'", '"')
-    # Parse as JSON list
-    response_data = json.loads(response_text)
-    return response_data
+    test_result = _db_client.client['test_database']['local_integration_configuration'].find_one(
+                    {"bridge_name": bridge, "config_name": config_name})
+    if test_result:
+        response = test_result.get('test_status')
+        test_time = test_result.get('last_tested_at')
+        if test_time and time.time() - test_time.timestamp() < 60:
+            return response
+        else:
+            return []
+    else:
+        return []
 
 
 def get_local_connectors():

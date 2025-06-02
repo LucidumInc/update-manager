@@ -471,10 +471,10 @@ def run_action_test_command(bridge: str, config_name: str):
         image, stdout=True, stderr=True, remove=True, network="lucidum_default", privileged=docker_privileged,
         command=command
     )
-    return {
-        "status": "OK",
-        "output": out.decode(),
-    }
+    response_text = out.decode("utf-8").split("response: ")[-1].strip().replace("'", '"')
+    # Parse as JSON list
+    response_data = json.loads(response_text)
+    return response_data
 
 
 def get_local_connectors():

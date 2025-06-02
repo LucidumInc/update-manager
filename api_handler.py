@@ -476,7 +476,7 @@ def run_action_test_command(bridge: str, config_name: str):
     if test_result:
         response = test_result.get('test_status')
         test_time = test_result.get('last_tested_at')
-        if test_time and time.time() - test_time.timestamp() < 60:
+        if response and test_time and time.time() - test_time.timestamp() < 60:
             return response
         else:
             return []

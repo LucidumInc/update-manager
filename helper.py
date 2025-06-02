@@ -93,7 +93,7 @@ def run_action_config_test():
         # url = f"http://localhost:20005/api/action-manager/connection/{result['bridge_name']}/{result['config_name']}"
         try:
             resp = requests.get(url)
-            logger.info(f"test action config result: {resp.text}")
+            logger.info(f"test action config result: {resp.text.split('response: ')[-1].strip()}")
             # collection.update_one({"_id": result["_id"]},
             #                       {"$set": {"test_status": resp.json(), "last_tested_at": datetime.now()}})
         except Exception as e:

@@ -52,6 +52,7 @@ templates = Jinja2Templates(directory="templates")
 import pydantic
 from bson.objectid import ObjectId
 from fastapi.encoders import ENCODERS_BY_TYPE
+
 ENCODERS_BY_TYPE[ObjectId] = str
 
 
@@ -458,6 +459,24 @@ def run_connector_test_command(connector_type: str, technology: str, profile_db_
     }
 
 
+@api_router.get("/action/{bridge}/test/{config_name}")
+def run_action_test_command(bridge: str, config_name: str):
+    action_version = get_product_version().get('action-manager', {}).get('version')
+    if not action_version:
+        return JSONResponse(content={"status": "FAILED", "output": "can't find image version"}, status_code=404)
+    image = f"action-manager:{action_version}"
+    command = f'bash -c "python lucidum_action.py test --bridge {bridge} --config_name {config_name}"'
+    docker_privileged = False
+    out = run_docker_container(
+        image, stdout=True, stderr=True, remove=True, network="lucidum_default", privileged=docker_privileged,
+        command=command
+    )
+    return {
+        "status": "OK",
+        "output": out.decode(),
+    }
+
+
 def get_local_connectors():
     result = []
     lucidum_dir = get_lucidum_dir()
@@ -538,6 +557,7 @@ def get_tunnel_client_dict():
             clients[items[0]] = parser.parse(items[2]).isoformat()
     return clients
 
+
 @api_router.delete("/tunnel/clients")
 def delete_tunnel_client(client_name):
     tunnel_clients = get_tunnel_client_dict()
@@ -551,6 +571,7 @@ def delete_tunnel_client(client_name):
         else:
             return {"client_name": client_name, 'status': 'deleted'}
     raise HTTPException(status_code=400, detail=f'client_name: {client_name} not found')
+
 
 @api_router.get("/tunnel/clients")
 def get_clients():
@@ -637,6 +658,7 @@ def get_connector_list_from_db():
                                })
     return result
 
+
 @api_router.get("/connector/listall")
 def get_all_connector_list_from_db():
     result = []
@@ -655,7 +677,7 @@ def get_all_connector_list_from_db():
                            'profile_status': item.get('active', False),
                            'bridge_name': item['bridge_name'],
                            'bridge_display_name': item.get('display_name', item['bridge_name'])
-                          })
+                           })
     return result
 
 
@@ -716,7 +738,7 @@ def get_configured_connectors() -> list:
                 "bridge_name": item["bridge_name"],
                 "bridge_display_name": item.get("display_name", item["bridge_name"]),
                 "last_tested_at": item.get("last_tested_at", None)
-                })
+            })
         else:
             for service in services_list:
                 result.append({
@@ -731,7 +753,7 @@ def get_configured_connectors() -> list:
                     "bridge_name": item["bridge_name"],
                     "bridge_display_name": item.get("display_name", item["bridge_name"]),
                     "last_tested_at": item.get("last_tested_at", None)
-                    })
+                })
     return result
 
 
@@ -910,8 +932,8 @@ def get_ui_users() -> list:
     """
 
     sort_order = list({
-        'created_date': 1
-    }.items())
+                          'created_date': 1
+                      }.items())
 
     projection = {
         'login': 1,
@@ -943,7 +965,6 @@ def get_ui_users() -> list:
 
     active_users = list(all_users)
     for user in active_users:
-
         user_list.append(
             {
                 'login': user.get('login'),
@@ -1005,7 +1026,7 @@ def get_configured_actions() -> list:
             "profile_schedule": item.get("schedule_type"),
             "bridge_name": params.get("bridge_name"),
             "config_name": params.get("config_name")
-            })
+        })
 
     return configured_action_profiles
 
@@ -1032,26 +1053,26 @@ def get_action_results(hours_ago: int = 24) -> list:
     filter = {
         '$and': [
             {
-                "_utc": { "$exists": True }
+                "_utc": {"$exists": True}
             },
             {
-                "_utc": { "$gte": start_time }
+                "_utc": {"$gte": start_time}
             },
             {
-                "integrationSystem": { "$exists": True }
+                "integrationSystem": {"$exists": True}
             },
             {
-                "status": { "$exists": True }
+                "status": {"$exists": True}
             },
             {
-                "status": { "$ne": "Not Run"}
+                "status": {"$ne": "Not Run"}
             }
         ]
     }
 
     sort = list({
-        'created_at': -1
-    }.items())
+                    'created_at': -1
+                }.items())
 
     action_job_results = []
     mongo_query_results = None
@@ -1078,12 +1099,12 @@ def get_action_results(hours_ago: int = 24) -> list:
         action_job_results.append({
             'action_name': action_name,
             'profile_name': item.get('query_name'),
-            'result_id': item.get('_id'), # Used to uniquely identify this result.
+            'result_id': item.get('_id'),  # Used to uniquely identify this result.
             'action_id': item.get('action_id'),
             '_utc': item.get('_utc'),
-            'action_recurrence_type': item.get('action_type'), # 'Schedule', 'Data'
-            'action_type': item.get('action_name'), # The "Action Type" as it appears in the UI.
-            'result_status': item.get('status'), # 'SUCCESS', 'Not Run', 'FAILED'
+            'action_recurrence_type': item.get('action_type'),  # 'Schedule', 'Data'
+            'action_type': item.get('action_name'),  # The "Action Type" as it appears in the UI.
+            'result_status': item.get('status'),  # 'SUCCESS', 'Not Run', 'FAILED'
             'created_ts': item.get('created_ts')
         })
 

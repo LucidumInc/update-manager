@@ -135,8 +135,10 @@ def migrate_extra(customer_name: str):
     Place json files under /usr/lucidum/mongo/db folder
     """
     from handlers.mongo_import import run
-    run(f'postDynamicFieldDef[{customer_name}].json', 'smart_label', override=True, upsert_fields='field_name,created_by')
-    run(f'postDynamicFieldDisplay[{customer_name}].json', 'field_display_local', override=True, upsert_fields='field_name')
+    run(f'postDynamicFieldDef[{customer_name}].json', 'smart_label', override=True,
+        upsert_fields='field_name,created_by', cleanup=False)
+    run(f'postDynamicFieldDisplay[{customer_name}].json', 'field_display_local', override=True,
+        upsert_fields='field_name', cleanup=False)
 
 
 @cli.command()

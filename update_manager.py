@@ -140,9 +140,9 @@ def migrate_extra(customer_name: str):
     run(f'postDynamicFieldDisplay[{customer_name}].json', 'field_display_local', override=True,
         upsert_fields='field_name', cleanup=False)
     run(f'postActionConfig[{customer_name}].json', 'local_integration_configuration', override=True,
-        upsert_fields='bridge_name,config_name')
+        upsert_fields='bridge_name,config_name', cleanup=False)
     run(f'postActionSchedule[{customer_name}].json', 'action_schedule', override=True,
-        upsert_fields='query_name,create_by')
+        upsert_fields='query_name,create_by', cleanup=False)
 
 
 @cli.command()

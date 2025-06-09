@@ -89,7 +89,7 @@ def run_action_config_test():
     results = get_all_action_configs()
     for result in results:
         logger.info(f"test action config: {result}")
-        url = f"http://localhost:8000/update-manager/api/action/{result['bridge_name']}/test/{result['config_name']}"
+        url = f"http://localhost:8000/update-manager/api/action-manager/connection/{result['bridge_name']}/{result['config_name']}"
         # url = f"http://localhost:20005/api/action-manager/connection/{result['bridge_name']}/{result['config_name']}"
         try:
             resp = requests.get(url)

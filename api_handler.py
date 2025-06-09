@@ -627,8 +627,8 @@ def get_server_status():
         if result_str and len(result_str.split("notAfter="))>1:
             date_str = result_str.split("notAfter=")[-1].strip()
             datetime_obj = parser.parse(date_str)
-            return {"expireDate": datetime_obj.isoformat()}
-    raise HTTPException(status_code=404, detail=f'server not setup')
+            return {"serverCertExpireDate": datetime_obj.isoformat()}
+    raise HTTPException(status_code=404, detail=f'server cert not found')
 
 
 def filter_connector_metrics(from_: str = Query(None, alias='from'), to_: str = Query(None, alias='to')):

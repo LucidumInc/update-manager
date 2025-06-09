@@ -31,9 +31,9 @@ class MongoImportJsonRunner:
 
 
 @logger.catch(onerror=lambda _: sys.exit(1))
-def run(source, destination, drop=False, override=False, upsert_fields='_id'):
+def run(source, destination, drop=False, override=False, upsert_fields='_id', cleanup=True):
     db_client = MongoDBClient()
-    if destination.lower() in ['smart_label', 'query_builder']:
+    if cleanup is True and destination.lower() in ['smart_label', 'query_builder']:
         smartlabel_table = db_client.client[db_client._mongo_db][destination]
         field_display_local_table = db_client.client[db_client._mongo_db]['field_display_local']
         vosl_list = smartlabel_table.find({'created_by': 'lucidum_vosl'})

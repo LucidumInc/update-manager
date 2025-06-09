@@ -459,7 +459,7 @@ def run_connector_test_command(connector_type: str, technology: str, profile_db_
     }
 
 
-@api_router.get("/action/{bridge}/test/{config_name}")
+@api_router.get("/action-manager/connection/{bridge}/{config_name}")
 def run_action_test_command(bridge: str, config_name: str):
     action_version = get_product_version().get('action-manager', {}).get('version')
     if not action_version:

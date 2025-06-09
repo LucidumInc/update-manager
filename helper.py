@@ -89,12 +89,13 @@ def run_action_config_test():
     results = get_all_action_configs()
     for result in results:
         logger.info(f"test action config: {result}")
-        url = f"http://localhost:20005/api/action-manager/connection/{result['bridge_name']}/{result['config_name']}"
+        url = f"http://localhost:8000/update-manager/api/action-manager/connection/{result['bridge_name']}/{result['config_name']}"
+        # url = f"http://localhost:20005/api/action-manager/connection/{result['bridge_name']}/{result['config_name']}"
         try:
             resp = requests.get(url)
             logger.info(f"test action config result: {resp.text}")
-            collection.update_one({"_id": result["_id"]},
-                                  {"$set": {"test_status": resp.json(), "last_tested_at": datetime.now()}})
+            # collection.update_one({"_id": result["_id"]},
+            #                       {"$set": {"test_status": resp.json(), "last_tested_at": datetime.now()}})
         except Exception as e:
             logger.warning(f"{url} error {e}")
     logger.info(">>> testing action config Done.")

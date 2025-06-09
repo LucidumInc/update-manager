@@ -139,6 +139,10 @@ def migrate_extra(customer_name: str):
         upsert_fields='field_name,created_by', cleanup=False)
     run(f'postDynamicFieldDisplay[{customer_name}].json', 'field_display_local', override=True,
         upsert_fields='field_name', cleanup=False)
+    run(f'postActionConfig[{customer_name}].json', 'local_integration_configuration', override=True,
+        upsert_fields='bridge_name,config_name')
+    run(f'postActionSchedule[{customer_name}].json', 'action_schedule', override=True,
+        upsert_fields='query_name,create_by')
 
 
 @cli.command()
@@ -148,7 +152,8 @@ def update_action_config():
     Place json files under /usr/lucidum/mongo/db folder
     """
     from handlers.mongo_import import run
-    run('emailActionConfig.json', 'local_integration_configuration', override=True, upsert_fields='config_name')
+    run('emailActionConfig.json', 'local_integration_configuration', override=True,
+        upsert_fields='bridge_name,config_name')
 
 
 @cli.command()

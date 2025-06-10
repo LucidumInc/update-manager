@@ -617,6 +617,19 @@ def get_clients():
 
     return {"clients": clients, }
 
+@api_router.get("/tunnel/server/status")
+def get_server_status():
+    container = get_docker_container("tunnel")
+    cmd = "openssl x509 -in /etc/openvpn/pki/issued/tunnel.*.lucidum.cloud.crt -dates -noout"
+    result = container.exec_run(['bash', '-c', cmd])
+    if result and result.output:
+        result_str = result.output.decode('utf-8')
+        if result_str and len(result_str.split("notAfter="))>1:
+            date_str = result_str.split("notAfter=")[-1].strip()
+            datetime_obj = parser.parse(date_str)
+            return {"serverCertExpireDate": datetime_obj.isoformat()}
+    raise HTTPException(status_code=404, detail=f'server cert not found')
+
 
 def filter_connector_metrics(from_: str = Query(None, alias='from'), to_: str = Query(None, alias='to')):
     if not from_:

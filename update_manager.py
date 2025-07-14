@@ -203,12 +203,19 @@ def build_dh(key_dir: str) -> None:
 
 @cli.command()
 def run_connector_config_to_db():
-    from api_handler import get_local_connectors
+    from api_handler import get_local_connectors, get_local_action
     from docker_service import run_docker_container
     connectors = get_local_connectors()
+    action = get_local_action()
+    if action:
+        connectors.append(action)
     for connector in connectors:
         try:
-            image = f"connector-{connector['type']}:{connector['version']}"
+            if connector['type'] == 'action':
+                main_image = "action-manager"
+            else:
+                main_image = f"connector-{connector['type']}"
+            image = f"{main_image}:{connector['version']}"
             command = f'bash -c "python lucidum_{connector["type"]}.py config-to-db"'
             out = run_docker_container(
                 image, stdout=True, stderr=True, remove=True, network="lucidum_default", command=command

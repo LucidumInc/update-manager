@@ -500,6 +500,21 @@ def get_local_connectors():
     return result
 
 
+def get_local_action():
+    result = {}
+    lucidum_dir = get_lucidum_dir()
+    airflow_settings_file_path = os.path.join(lucidum_dir, "airflow", "dags", "settings.yml")
+    if not os.path.isfile(airflow_settings_file_path):
+        logger.warning("'{}' file does not exist", airflow_settings_file_path)
+        return result
+    with open(airflow_settings_file_path) as f:
+        data = yaml.full_load(f)
+        if "global" in data and "action-manager" in data["global"]:
+            action = data["global"]["action-manager"]
+            result = {"type": 'action', "version": action['version']}
+    return result
+
+
 @api_router.get("/connector/config-to-db")
 def run_connector_config_to_db():
     connectors = get_local_connectors()

@@ -16,7 +16,7 @@ import time
 import yaml
 from openvpn_status import parse_status
 from pymongo import MongoClient, errors
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, unquote_plus
 
 import uvicorn
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Query, Depends
@@ -459,8 +459,9 @@ def run_connector_test_command(connector_type: str, technology: str, profile_db_
     }
 
 
-@api_router.get("/action-manager/connection/{bridge}/{config_name}")
-def run_action_test_command(bridge: str, config_name: str):
+@api_router.get("/action-manager/connection/{bridge}/{raw_config_name}")
+def run_action_test_command(bridge: str, raw_config_name: str):
+    config_name = unquote_plus(raw_config_name)
     action_version = get_product_version().get('action-manager', {}).get('version')
     if not action_version:
         return JSONResponse(content={"status": "FAILED", "output": "can't find image version"}, status_code=404)

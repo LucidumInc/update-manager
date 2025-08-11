@@ -38,7 +38,7 @@ def run(source, destination, drop=False, override=False, upsert_fields='_id', cl
         field_display_local_table = db_client.client[db_client._mongo_db]['field_display_local']
         vosl_list = smartlabel_table.find({'created_by': 'lucidum_vosl'})
         if destination.lower() == 'smart_label':
-            resp = requests.get("https://localhost/CMDB/api/internal/llm/fields/populate")
+            resp = requests.get("https://localhost/CMDB/api/internal/llm/fields/populate", verify=False, timeout=30)
             logger.info(resp.text)
             for vosl in vosl_list:
                 field_display_local_table.delete_many({'field_name': vosl['field_name']})

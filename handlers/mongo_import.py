@@ -1,5 +1,5 @@
 import sys
-
+import requests
 import os
 from loguru import logger
 
@@ -45,3 +45,8 @@ def run(source, destination, drop=False, override=False, upsert_fields='_id', cl
 
     import_runner = MongoImportJsonRunner()
     import_runner(source, destination, drop=drop, override=override, upsert_fields=upsert_fields)
+
+    # populate luci fields
+    if destination.lower() == 'smart_label':
+        resp = requests.get("https://localhost/CMDB/api/internal/llm/fields/populate", verify=False, timeout=30)
+        logger.info(resp.text)

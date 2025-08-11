@@ -38,8 +38,6 @@ def run(source, destination, drop=False, override=False, upsert_fields='_id', cl
         field_display_local_table = db_client.client[db_client._mongo_db]['field_display_local']
         vosl_list = smartlabel_table.find({'created_by': 'lucidum_vosl'})
         if destination.lower() == 'smart_label':
-            resp = requests.get("https://localhost/CMDB/api/internal/llm/fields/populate", verify=False, timeout=30)
-            logger.info(resp.text)
             for vosl in vosl_list:
                 field_display_local_table.delete_many({'field_name': vosl['field_name']})
         d = smartlabel_table.delete_many({'created_by': 'lucidum_vosl'})
@@ -47,3 +45,8 @@ def run(source, destination, drop=False, override=False, upsert_fields='_id', cl
 
     import_runner = MongoImportJsonRunner()
     import_runner(source, destination, drop=drop, override=override, upsert_fields=upsert_fields)
+
+    # populate luci fields
+    if destination.lower() == 'smart_label':
+        resp = requests.get("https://localhost/CMDB/api/internal/llm/fields/populate", verify=False, timeout=30)
+        logger.info(resp.text)

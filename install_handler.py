@@ -28,6 +28,8 @@ DOCKER_COMPOSE_SERVICE_IMAGE_MAPPING = {
     "connector-api": "connector-api",
     "action-manager": "action-manager",
     "global-manager": "global-manager",
+    "customer-manager": "customer-manager",
+    "cve-api": "cve-api",
     "nginx": "nginx",
 }
 

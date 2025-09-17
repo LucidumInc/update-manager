@@ -1,5 +1,6 @@
 import sys
 import requests
+import json
 import os
 from loguru import logger
 
@@ -33,15 +34,30 @@ class MongoImportJsonRunner:
 @logger.catch(onerror=lambda _: sys.exit(1))
 def run(source, destination, drop=False, override=False, upsert_fields='_id', cleanup=True):
     db_client = MongoDBClient()
-    if cleanup is True and destination.lower() in ['smart_label', 'query_builder']:
-        smartlabel_table = db_client.client[db_client._mongo_db][destination]
-        field_display_local_table = db_client.client[db_client._mongo_db]['field_display_local']
-        vosl_list = smartlabel_table.find({'created_by': 'lucidum_vosl'})
-        if destination.lower() == 'smart_label':
+    destination_lower = destination.lower()
+    db = db_client.client[db_client._mongo_db]
+    # Load import data
+    with open(source) as f:
+        import_data = json.load(f)
+    # Optional cleanup for smart_label or query_builder tables
+    if cleanup is True and destination_lower in ['smart_label', 'query_builder']:
+        target_table = db[destination]
+        field_display_table = db['field_display_local']
+        vosl_list = target_table.find({'created_by': 'lucidum_vosl'})
+        # For smart labels, also need to clean up the field display local table
+        if destination_lower == 'smart_label':
             for vosl in vosl_list:
-                field_display_local_table.delete_many({'field_name': vosl['field_name']})
-        d = smartlabel_table.delete_many({'created_by': 'lucidum_vosl'})
+                field_display_table.delete_many({'field_name': vosl['field_name']})
+        d = target_table.delete_many({'created_by': 'lucidum_vosl'})
         logger.info(f"{destination}: {d.deleted_count} old value-oriented records deleted!")
+        # Handle override logic with sent_to_luci preservation
+        if destination_lower == 'query_builder':
+            for item in import_data:
+                filter_criteria = {f: item.get(f) for f in upsert_fields.split(',')}
+                existing = target_table.find_one(filter_criteria)
+                item['sent_to_luci'] = existing.get(
+                    'sent_to_luci') if existing and 'sent_to_luci' in existing else True
+                target_table.update_one(filter_criteria, {'$set': item}, upsert=True)
 
     import_runner = MongoImportJsonRunner()
     import_runner(source, destination, drop=drop, override=override, upsert_fields=upsert_fields)

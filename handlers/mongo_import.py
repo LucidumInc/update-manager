@@ -38,7 +38,7 @@ def run(source, destination, drop=False, override=False, upsert_fields='_id', cl
     db = db_client.client[db_client._mongo_db]
     # Load import data
     with open(source) as f:
-        import_data = json.load(f)
+        import_data = [json.loads(line) for line in f if line.strip()]
     # Optional cleanup for smart_label or query_builder tables
     if cleanup is True and destination_lower in ['smart_label', 'query_builder']:
         target_table = db[destination]

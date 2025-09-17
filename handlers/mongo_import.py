@@ -56,7 +56,7 @@ def run(source, destination, drop=False, override=False, upsert_fields='_id', cl
                 filter_criteria = {f: item.get(f) for f in upsert_fields.split(',')}
                 existing = target_table.find_one(filter_criteria)
                 item['sent_to_luci'] = existing.get(
-                    'sent_to_luci') if existing and 'sent_to_luci' in existing else True
+                    'sent_to_luci') if existing and existing.get('sent_to_luci') is not None else True
                 target_table.update_one(filter_criteria, {'$set': item}, upsert=True)
 
     import_runner = MongoImportJsonRunner()

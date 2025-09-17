@@ -48,16 +48,19 @@ def run(source, destination, drop=False, override=False, upsert_fields='_id', cl
         if destination_lower == 'smart_label':
             for vosl in vosl_list:
                 field_display_table.delete_many({'field_name': vosl['field_name']})
-        d = target_table.delete_many({'created_by': 'lucidum_vosl'})
-        logger.info(f"{destination}: {d.deleted_count} old value-oriented records deleted!")
         # Handle override logic with sent_to_luci preservation
         if destination_lower == 'query_builder':
+            updated_lines = []
             for item in import_data:
                 filter_criteria = {f: item.get(f) for f in upsert_fields.split(',')}
                 existing = target_table.find_one(filter_criteria)
                 item['sent_to_luci'] = existing.get(
                     'sent_to_luci') if existing and existing.get('sent_to_luci') is not None else True
-                target_table.update_one(filter_criteria, {'$set': item}, upsert=True)
+                updated_lines.append(json.dumps(item, ensure_ascii=False) + '\n')
+            open(source, 'w', encoding='utf-8').writelines(updated_lines)
+
+        d = target_table.delete_many({'created_by': 'lucidum_vosl'})
+        logger.info(f"{destination}: {d.deleted_count} old value-oriented records deleted!")
 
     import_runner = MongoImportJsonRunner()
     import_runner(source, destination, drop=drop, override=override, upsert_fields=upsert_fields)

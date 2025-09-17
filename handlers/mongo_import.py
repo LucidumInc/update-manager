@@ -49,8 +49,8 @@ def run(source, destination, drop=False, override=False, upsert_fields='_id', cl
         if destination_lower == 'query_builder':
             # Load import data
             source_path = f"/usr/lucidum/mongo/db/{source}"
-            with open(source_path) as f:
-                import_data = [json.loads(line) for line in f if line.strip()]
+            with open(source_path, 'r', encoding='utf-8') as f:
+                import_data = [json.loads(s) for s in f.readlines() if s.strip()]
             updated_lines = []
             for item in import_data:
                 filter_criteria = {f: item.get(f) for f in upsert_fields.split(',')}

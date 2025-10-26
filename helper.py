@@ -5,6 +5,7 @@ from api_handler import MongoDBClient
 from loguru import logger
 from bson.objectid import ObjectId
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
 
 db_client = MongoDBClient()
 connector_table_name = 'local_connector_configuration'
@@ -48,31 +49,49 @@ def get_active_connector_profiles():
 
 
 def run_connector_profile_test():
-    result = get_active_connector_profiles()
-    for record in result:
-        logger.info(f"test connector: {record}")
-        trace_id = uuid.uuid4().hex
-        url = f"http://localhost:8000/update-manager/api/connector/{record['connector_name']}/test/{record['bridge_name']}?profile_db_id={record['profile_id']}&trace_id={trace_id}"
-        resp = requests.get(url)
-        collection = connector_test_result_table
-        test_results = collection.find_one({'trace_id': trace_id})
-        if not test_results:
-            logger.info('no test result')
-            continue
-        logger.info(f"test connector result: {test_results}")
-        connector_config = connector_table.find_one({'_id': ObjectId(test_results['profile_db_id'])})
-        can_update = False
-        for test_result in test_results['test_result']:
-            for service in connector_config['services_list']:
-                if test_result['name'] == service['service']:
-                    service['status'] = test_result['status']
-                    service['message'] = test_result['message']
-                    can_update = True
-        if can_update:
-            connector_table.update_one({"_id": ObjectId(test_results['profile_db_id'])}, {
-                "$set": {"services_list": connector_config['services_list'], "last_tested_at": datetime.now()}})
-            logger.info(f"DB test result updated.")
-        logger.info(">>> testing connector profile Done.")
+    logger.info(">>> testing connector profiles start...")
+    records = get_active_connector_profiles()
+    collection = connector_test_result_table
+
+    def test_profile(record):
+        try:
+            logger.info(f"test connector: {record}")
+            trace_id = uuid.uuid4().hex
+            url = (
+                f"http://localhost:8000/update-manager/api/connector/"
+                f"{record['connector_name']}/test/{record['bridge_name']}"
+                f"?profile_db_id={record['profile_id']}&trace_id={trace_id}"
+            )
+            requests.get(url)
+            test_results = collection.find_one({'trace_id': trace_id})
+            if not test_results:
+                logger.info(f'no test result for trace_id {trace_id}')
+                return
+            logger.info(f"test connector result: {test_results}")
+            connector_config = connector_table.find_one({'_id': ObjectId(test_results['profile_db_id'])})
+            can_update = False
+            for test_result in test_results['test_result']:
+                for service in connector_config['services_list']:
+                    if test_result['name'] == service['service']:
+                        service['status'] = test_result['status']
+                        service['message'] = test_result['message']
+                        can_update = True
+            if can_update:
+                connector_table.update_one(
+                    {"_id": ObjectId(test_results['profile_db_id'])},
+                    {"$set": {
+                        "services_list": connector_config['services_list'],
+                        "last_tested_at": datetime.now()
+                    }}
+                )
+                logger.info(f"DB test result updated for profile {test_results['profile_db_id']}")
+        except Exception as e:
+            logger.warning(f"Error testing connector profile {record}: {e}")
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        executor.map(test_profile, records)
+
+    logger.info(">>> testing connector profiles Done.")
 
 
 def get_all_action_configs():
@@ -87,17 +106,21 @@ def run_action_config_test():
     logger.info(">>> testing action config start...")
     collection = action_config_table
     results = get_all_action_configs()
-    for result in results:
-        logger.info(f"test action config: {result}")
+
+    def test_action_config(result):
         url = f"http://localhost:8000/update-manager/api/action-manager/connection/{result['bridge_name']}/{result['config_name']}"
-        # url = f"http://localhost:20005/api/action-manager/connection/{result['bridge_name']}/{result['config_name']}"
         try:
+            logger.info(f"test action config: {result}")
             resp = requests.get(url)
             logger.info(f"test action config result: {resp.text}")
             # collection.update_one({"_id": result["_id"]},
             #                       {"$set": {"test_status": resp.json(), "last_tested_at": datetime.now()}})
         except Exception as e:
             logger.warning(f"{url} error {e}")
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        executor.map(test_action_config, results)
+
     logger.info(">>> testing action config Done.")
 
 

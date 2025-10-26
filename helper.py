@@ -88,7 +88,7 @@ def run_connector_profile_test():
         except Exception as e:
             logger.warning(f"Error testing connector profile {record}: {e}")
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(max_workers=5) as executor:
         executor.map(test_profile, records)
 
     logger.info(">>> testing connector profiles Done.")
@@ -119,7 +119,7 @@ def run_action_config_test():
         except Exception as e:
             logger.warning(f"{url} error {e}")
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(max_workers=5) as executor:
         executor.map(test_action_config, results)
 
     logger.info(">>> testing action config Done.")

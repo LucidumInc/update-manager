@@ -108,7 +108,8 @@ def run_action_config_test():
     results = get_all_action_configs()
 
     def test_action_config(result):
-        url = f"http://localhost:8000/update-manager/api/action-manager/connection/{result['bridge_name']}/{result['config_name']}"
+        url = (f"http://localhost:8000/update-manager/api/action-manager/connection/"
+               f"{result['bridge_name']}/{result['config_name']}")
         try:
             logger.info(f"test action config: {result}")
             resp = requests.get(url)
@@ -125,5 +126,5 @@ def run_action_config_test():
 
 
 if __name__ == "__main__":
-    #run_connector_profile_test()
+    # run_connector_profile_test()
     run_action_config_test()

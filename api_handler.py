@@ -696,6 +696,7 @@ def get_connector_list_from_db():
                                'connector': item['connector_name'],
                                'profile_db_id': str(item['_id']),
                                'profile_name': item['profile_name'],
+                               'proxy': item.get('proxy'),
                                'bridge_name': item['bridge_name'],
                                'bridge_display_name': item.get('display_name', item['bridge_name'])
                                })

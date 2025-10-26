@@ -62,7 +62,8 @@ def run_connector_profile_test():
                 f"{record['connector_name']}/test/{record['bridge_name']}"
                 f"?profile_db_id={record['profile_id']}&trace_id={trace_id}"
             )
-            requests.get(url)
+            resp = requests.get(url)
+            resp.raise_for_status()
             test_results = collection.find_one({'trace_id': trace_id})
             if not test_results:
                 logger.info(f'no test result for trace_id {trace_id}')
@@ -113,6 +114,7 @@ def run_action_config_test():
         try:
             logger.info(f"test action config: {result}")
             resp = requests.get(url)
+            resp.raise_for_status()
             logger.info(f"test action config result: {resp.text}")
             # collection.update_one({"_id": result["_id"]},
             #                       {"$set": {"test_status": resp.json(), "last_tested_at": datetime.now()}})

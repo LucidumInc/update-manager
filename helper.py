@@ -87,7 +87,7 @@ def run_connector_profile_test():
                 )
                 logger.info(f"DB test result updated for profile {test_results['profile_db_id']}")
         except Exception as e:
-            logger.warning(f"Error testing connector profile {record}: {e}")
+            logger.warning(f"error testing connector profile {record}: {e}")
 
     with ThreadPoolExecutor(max_workers=5) as executor:
         executor.map(test_profile, records)
@@ -119,7 +119,7 @@ def run_action_config_test():
             # collection.update_one({"_id": result["_id"]},
             #                       {"$set": {"test_status": resp.json(), "last_tested_at": datetime.now()}})
         except Exception as e:
-            logger.warning(f"{url} error {e}")
+            logger.warning(f"{url} error: {e}")
 
     with ThreadPoolExecutor(max_workers=5) as executor:
         executor.map(test_action_config, results)

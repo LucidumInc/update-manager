@@ -1064,7 +1064,7 @@ def get_configured_actions() -> list:
 
         configured_action_profiles.append({
             "profile_name": item.get("query_name"),
-            "action_id": item.get("_id"),
+            "action_id": str(item.get("_id")),
             "profile_db_id": params.get("profile_id"),
             "profile_status": item.get("schedule_status", "STOP"),
             "profile_schedule": item.get("schedule_type"),
@@ -1143,7 +1143,7 @@ def get_action_results(hours_ago: int = 24) -> list:
         action_job_results.append({
             'action_name': action_name,
             'profile_name': item.get('query_name'),
-            'result_id': item.get('_id'),  # Used to uniquely identify this result.
+            'result_id': str(item.get('_id')),  # Used to uniquely identify this result.
             'action_id': item.get('action_id'),
             '_utc': item.get('_utc'),
             'action_recurrence_type': item.get('action_type'),  # 'Schedule', 'Data'

@@ -1064,7 +1064,7 @@ def get_configured_actions() -> list:
 
         configured_action_profiles.append({
             "profile_name": item.get("query_name"),
-            "action_id": item.get("_id"),
+            "action_id": str(item.get("_id")),
             "profile_db_id": params.get("profile_id"),
             "profile_status": item.get("schedule_status", "STOP"),
             "profile_schedule": item.get("schedule_type"),

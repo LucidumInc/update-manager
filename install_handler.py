@@ -148,28 +148,28 @@ def format_docker_compose(images: list):
 
 
 def run_docker_compose() -> None:
-    logger.info("Running docker-compose to up lucidum infrastructure...")
+    logger.info("Running docker compose to up lucidum infrastructure...")
     subprocess.run(
-        [shutil.which("docker-compose"), "up", "-d"], cwd=get_lucidum_dir(), input=b"y", check=True
+        [shutil.which("docker compose"), "up", "-d"], cwd=get_lucidum_dir(), input=b"y", check=True
     )
 
 
 def run_docker_compose_restart(container: str):
     logger.info("Restarting '{}' container...", container)
     lucidum_dir = get_lucidum_dir()
-    subprocess.run([shutil.which("docker-compose"), "rm", "-f", "-s", "-v", container], cwd=lucidum_dir, check=True)
-    subprocess.run([shutil.which("docker-compose"), "up", "-d"], cwd=lucidum_dir, check=True)
+    subprocess.run([shutil.which("docker compose"), "rm", "-f", "-s", "-v", container], cwd=lucidum_dir, check=True)
+    subprocess.run([shutil.which("docker compose"), "up", "-d"], cwd=lucidum_dir, check=True)
 
 
 def restart_docker_compose_services():
-    logger.info("Restarting docker-compose services...")
+    logger.info("Restarting docker compose services...")
     lucidum_dir = get_lucidum_dir()
     try:
-        subprocess.run([shutil.which("docker-compose"), "down"], cwd=lucidum_dir, check=True)
+        subprocess.run([shutil.which("docker compose"), "down"], cwd=lucidum_dir, check=True)
     except:
-        logger.error('docker-compose down error')
+        logger.error('docker compose down error')
     finally:
-        subprocess.run([shutil.which("docker-compose"), "up", "-d"], cwd=lucidum_dir, check=True)
+        subprocess.run([shutil.which("docker compose"), "up", "-d"], cwd=lucidum_dir, check=True)
 
 
 def create_hard_link(src, dst):
@@ -320,7 +320,7 @@ class DockerImagesUpdaterWithNewRestart(DockerImagesUpdater):
 
 @logger.catch(onerror=lambda _: sys.exit(1))
 def install(archive_filepath: str) -> None:
-    """Unpack archive, load docker images, format docker-compose.yml file and run docker-compose."""
+    """Unpack archive, load docker images, format docker-compose.yml file and run docker compose."""
     release_dir = unpack_archive(archive_filepath)
     try:
         load_docker_images_from_file(release_dir)

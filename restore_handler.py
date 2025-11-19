@@ -79,9 +79,9 @@ class MongoRestoreRunner(BaseRestoreRunner):
     @log_wrap
     def __call__(self):
         lucidum_dir = get_lucidum_dir()
-        docker_compose_executable = shutil.which("docker compose")
+        docker_compose_executable = shutil.which("docker")
         if self._web_stop:
-            subprocess.run([docker_compose_executable, "stop", self.web_service], cwd=lucidum_dir, check=True)
+            subprocess.run([docker_compose_executable, "compose", "stop", self.web_service], cwd=lucidum_dir, check=True)
         container = get_docker_container("mongo")
         local_filepath = self.get_backup_filepath()
         tar_stream = create_archive(local_filepath)
@@ -110,8 +110,8 @@ class LucidumDirRestoreRunner(BaseRestoreRunner):
     @log_wrap
     def __call__(self):
         lucidum_dir = get_lucidum_dir()
-        docker_compose_executable = shutil.which("docker compose")
-        subprocess.run([docker_compose_executable, "stop", self.web_service], cwd=lucidum_dir, check=True)
+        docker_compose_executable = shutil.which("docker")
+        subprocess.run([docker_compose_executable, "compose", "stop", self.web_service], cwd=lucidum_dir, check=True)
         mysql_dump_file = mongo_dump_file = None
         local_filepath = self.get_backup_filepath()
         restore_cmd = f"sudo tar -xvf {local_filepath} --directory={lucidum_dir}"

@@ -130,7 +130,7 @@ def migrate_vod():
     run('postReport.json', 'biQuery_lucidum_report', drop=True)
     run('postDashboard.json', 'biQuery_lucidum_dashboard', drop=True)
     if hostname.lower() == 'demo':
-        logger.info("====> By pass demo for smart label and saved query import")
+        logger.info("====> Bypass demo for smart label and saved query import")
     else:
         logger.info(f"====> smart label and saved query import for {hostname}")
         run('postDynamicFieldDef.json', 'smart_label', override=True, upsert_fields='field_name')

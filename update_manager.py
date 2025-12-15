@@ -119,13 +119,24 @@ def migrate_vod():
     Migrate VOD related mongo collections.
     Place json files under /usr/lucidum/mongo/db folder
     """
+    import socket
     from handlers.mongo_import import run
+    hostname = ""
+    try:
+        hostname = socket.gethostname()
+    except socket.error as e:
+        logger.warning(f'get hostname error: {e}')
+    logger.info(f"====> dashboard and chart import for {hostname}")
     run('postReport.json', 'biQuery_lucidum_report', drop=True)
     run('postDashboard.json', 'biQuery_lucidum_dashboard', drop=True)
-    run('postDynamicFieldDef.json', 'smart_label', override=True, upsert_fields='field_name,created_by')
-    run('postDynamicFieldDisplay.json', 'field_display_local', override=True, upsert_fields='field_name')
-    run('postSavedQuery.json', 'Query_Builder', override=True, upsert_fields='name,created_by')
-
+    if hostname.lower() == 'demo':
+        logger.info("====> Bypass demo for smart label and saved query import")
+    else:
+        logger.info(f"====> smart label and saved query import for {hostname}")
+        run('postDynamicFieldDef.json', 'smart_label', override=True, upsert_fields='field_name')
+        run('postDynamicFieldDisplay.json', 'field_display_local', override=True, upsert_fields='field_name')
+        run('postSavedQuery.json', 'Query_Builder', override=True, upsert_fields='name')
+        
 
 @cli.command()
 @click.option('--customer-name', required=True, help="customer name")

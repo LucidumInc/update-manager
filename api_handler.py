@@ -170,7 +170,7 @@ class UpdateComponentVersionModel(BaseModel):
 
     @validator("files", each_item=True)
     def check_files_contains(cls, v):
-        options = ["docker-compose", "airflow"]
+        options = ["docker compose", "airflow"]
         assert v in options, f"'{v}' should be one of {options}"
         return v
 

@@ -14,9 +14,9 @@ idna==3.7
 immutables==0.21
 Jinja2==3.1.6
 jmespath==0.10.0
-loguru==0.5.3
+loguru==0.7.2
 MarkupSafe==3.0.2
-pip==25.1.1
+pip==25.2
 pyasn1==0.6.1
 pycparser==2.20
 pymongo==4.12.0
@@ -26,7 +26,7 @@ rsa==4.7.2
 s3transfer==0.11.0
 six==1.17.0
 tabulate==0.8.9
-urllib3==1.26.20
+urllib3==2.6.3
 websocket-client==0.58.0
 pydantic==1.10.19
 uvicorn==0.13.4

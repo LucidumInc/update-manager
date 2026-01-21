@@ -2,7 +2,6 @@ import json
 import os
 import sys
 from loguru import logger
-from pymongo import MongoClient
 
 from config_handler import get_local_images, get_mongo_config, is_connector, get_mongo_client
 

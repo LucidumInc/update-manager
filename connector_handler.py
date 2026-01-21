@@ -1,27 +1,24 @@
 import json
 import os
 import sys
-from urllib.parse import quote_plus
-
 from loguru import logger
 from pymongo import MongoClient
 
-from config_handler import get_local_images, get_mongo_config, is_connector
+from config_handler import get_local_images, get_mongo_config, is_connector, get_mongo_client
 
 
 class MongoDBClient:
     MONGO_URI_FORMAT = "mongodb://{user}:{password}@{host}:{port}/?authSource={db}"
 
     def __init__(self, mongo_host, mongo_user, mongo_pwd, mongo_port, mongo_db) -> None:
-        self._uri = self.MONGO_URI_FORMAT.format(
-            user=quote_plus(mongo_user), password=quote_plus(mongo_pwd), host=mongo_host, port=mongo_port, db=mongo_db
-        )
+        self._cfg = {"mongo_host": mongo_host, "mongo_user": mongo_user, "mongo_pwd": mongo_pwd,
+                     "mongo_port": mongo_port, "mongo_db": mongo_db}
         self._client = None
 
     @property
     def client(self):
         if self._client is None:
-            self._client = MongoClient(self._uri)
+            self._client = get_mongo_client(self._cfg)
         return self._client
 
     def insert(self, collection, data):

@@ -27,7 +27,7 @@ from loguru import logger
 from pydantic import BaseModel, validator
 from openvpn_status_parser import revertDatetimeFormat
 
-from config_handler import get_lucidum_dir, get_images, get_mongo_config, get_ecr_token, \
+from config_handler import get_lucidum_dir, get_images, get_mongo_config, get_mongo_client, get_ecr_token, \
     get_ecr_url, get_ecr_client, get_aws_config, get_ecr_base, get_source_mapping_file_path
 from docker_service import start_docker_compose, stop_docker_compose, list_docker_compose_containers, \
     start_docker_compose_service, stop_docker_compose_service, restart_docker_compose, restart_docker_compose_service, \
@@ -66,16 +66,8 @@ class MongoDBClient:
     @property
     def client(self):
         if self._client is None:
-            uri_pattern = "mongodb://{user}:{password}@{host}:{port}/?authSource={db}"
-
             configs = get_mongo_config()
-            self._client = MongoClient(uri_pattern.format(
-                user=quote_plus(configs["mongo_user"]),
-                password=quote_plus(configs["mongo_pwd"]),
-                host=configs["mongo_host"],
-                port=configs["mongo_port"],
-                db=configs["mongo_db"]
-            ))
+            self._client = get_mongo_client(configs)
         return self._client
 
     def get_first_document(self):

@@ -114,6 +114,7 @@ def get_mongo_client(cfg):
     Create a MongoDB client that works for both local MongoDB and MongoDB Atlas.
     Automatically detects SRV (Atlas) vs standard host.
     """
+    cfg = {str(k).lower(): v for k, v in cfg.items()}
     host = cfg['mongo_host']
     user = cfg['mongo_user']
     pwd = cfg['mongo_pwd']

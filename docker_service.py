@@ -26,7 +26,17 @@ def _pull_docker_image_from_ecr(repository: str, tag: str = None):
         ecr_client = get_ecr_client(access_key, secret_key)
         docker_client = get_docker_client()
         auth_config = {"username": ecr_client.auth_config["username"], "password": ecr_client.auth_config["password"]}
-        docker_client.images.pull(repository, tag=tag, auth_config=auth_config)
+        # retry
+        for attempt in range(3):
+            try:
+                docker_client.images.pull(repository, tag=tag, auth_config=auth_config)
+                break  # success → exit retry loop
+            except Exception as e:
+                logger.warning(f"ECR pull attempt {attempt + 1} failed: {e}")
+                if attempt == 2:
+                    raise  # rethrow on final attempt
+                time.sleep(30)
+
         return
     except Exception as e:
         logger.warning(e)
@@ -37,6 +47,7 @@ def _pull_docker_image_from_ecr(repository: str, tag: str = None):
         auth_config = {"username": 'AWS', "password": ecr_pw}
         docker_client = get_docker_client()
         docker_client.images.pull(repository, tag=tag, auth_config=auth_config)
+
 
 def _pull_docker_image_from_docker_hub(repository: str, tag: str = None):
     docker_client = get_docker_client()
@@ -188,4 +199,3 @@ def get_docker_compose_logs(directory: str, service_name: str = None, tail: int 
         stderr=subprocess.PIPE
     )
     return cp.stdout
-

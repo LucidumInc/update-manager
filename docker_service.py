@@ -35,7 +35,7 @@ def _pull_docker_image_from_ecr(repository: str, tag: str = None):
                 logger.warning(f"ECR pull attempt {attempt + 1} failed: {e}")
                 if attempt == 2:
                     raise  # rethrow on final attempt
-                time.sleep(15)
+                time.sleep(30)
 
         return
     except Exception as e:

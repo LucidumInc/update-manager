@@ -23,12 +23,13 @@ def _pull_docker_image_from_ecr(repository: str, tag: str = None):
     # use access_key and secret_key to authenticate first
     try:
         access_key, secret_key = get_aws_config()
-        ecr_client = get_ecr_client(access_key, secret_key)
-        docker_client = get_docker_client()
-        auth_config = {"username": ecr_client.auth_config["username"], "password": ecr_client.auth_config["password"]}
         # retry
         for attempt in range(3):
             try:
+                ecr_client = get_ecr_client(access_key, secret_key)
+                docker_client = get_docker_client()
+                auth_config = {"username": ecr_client.auth_config["username"],
+                               "password": ecr_client.auth_config["password"]}
                 docker_client.images.pull(repository, tag=tag, auth_config=auth_config)
                 break  # success → exit retry loop
             except Exception as e:

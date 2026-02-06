@@ -5,7 +5,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from docker import DockerClient
 from dynaconf import settings
-
+from pymongo import MongoClient
 from aws_service import ECRClient
 from exceptions import AppError
 
@@ -108,6 +108,32 @@ def get_mongo_config():
         "mongo_db": required_field_check('MONGO_CONFIG.MONGO_DB'),
     }
 
+
+def get_mongo_client(cfg):
+    """
+    Create a MongoDB client that works for both local MongoDB and MongoDB Atlas.
+    Automatically detects SRV (Atlas) vs standard host.
+    """
+    cfg = {str(k).lower(): v for k, v in cfg.items()}
+    host = cfg['mongo_host']
+    user = cfg['mongo_user']
+    pwd = cfg['mongo_pwd']
+    # Base kwargs used for both local and Atlas
+    client_kwargs = {
+        "username": user,
+        "password": pwd,
+        "connectTimeoutMS": 600000,
+        "authSource": cfg.get("mongo_src", cfg["mongo_db"]),
+        "authMechanism": cfg.get("mongo_auth", "SCRAM-SHA-256")
+    }
+    # Detect Atlas (mongodb+srv://)
+    if host.startswith("mongodb+srv://"):
+        # Override only what Atlas requires
+        client_kwargs["authSource"] = "admin"
+    # Single MongoClient call
+    return MongoClient(host, **client_kwargs)
+
+
 def get_airflow_db_config():
     return {
         "host": required_field_check('AIRFLOW_DB_CONFIG.HOST'),
@@ -142,6 +168,7 @@ def get_docker_client() -> DockerClient:
 def get_ecr_image_list():
     return []
 
+
 def get_images(components):
     ecr_base = get_ecr_base()
     lucidum_base = get_lucidum_dir()
@@ -155,6 +182,7 @@ def get_images(components):
         image_path = get_image_path_mapping(lucidum_base, image_data['name'], image_data['version'])
         images.append({**image_data, **image_path})
     return images
+
 
 def get_ecr_images():
     ecr_base = get_ecr_base()
@@ -226,6 +254,7 @@ def get_local_images():
             images.append(image_data)
     return images
 
+
 def get_ecr_pw():
     ecr_token = settings.get('ECR_TOKEN', None)
     if ecr_token:
@@ -234,8 +263,10 @@ def get_ecr_pw():
             return credentials[1]
     return None
 
+
 def get_source_mapping_file_path():
     return settings.get('SOURCE_MAPPING_FILE_PATH', '/usr/lucidum/connector*/external/source-mapping.json')
+
 
 def get_ecr_url():
     return settings.get('ECR_URL', None)

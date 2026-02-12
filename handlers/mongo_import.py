@@ -12,6 +12,7 @@ from api_handler import MongoDBClient
 
 
 def run_import_cmd(source, destination, drop=False, override=False, upsert_fields=None):
+    logger.info("[mongoimport] ===================================================================")
     configs = get_mongo_config()
     is_srv = configs["mongo_host"].startswith("mongodb+srv://")
     # File path depends on execution mode

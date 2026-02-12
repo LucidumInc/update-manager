@@ -65,7 +65,7 @@ env_vars = {
 
 
 class MongoDBClient:
-    _mongo_db = "test_database"
+    _mongo_db = configs['mongo_db']
     _mongo_collection = "system_settings"
 
     def __init__(self) -> None:
@@ -451,7 +451,7 @@ def run_connector_test_command(connector_type: str, technology: str, profile_db_
         command=command, environment=env_vars
     )
     if trace_id:
-        _db_client.client['test_database']['connector_test_result'].update_one({"trace_id": trace_id}, {
+        _db_client.client[configs['mongo_db']]['connector_test_result'].update_one({"trace_id": trace_id}, {
             "$set": {"last_tested_at": datetime.now(tz=timezone.utc)}})
     return {
         "status": "OK",
@@ -472,7 +472,7 @@ def run_action_test_command(bridge: str, raw_config_name: str):
         image, stdout=True, stderr=True, remove=True, network="lucidum_default", privileged=docker_privileged,
         command=command, environment=env_vars
     )
-    test_result = _db_client.client['test_database']['local_integration_configuration'].find_one(
+    test_result = _db_client.client[configs['mongo_db']]['local_integration_configuration'].find_one(
                     {"bridge_name": bridge, "config_name": config_name})
     if test_result:
         response = test_result.get('test_status')

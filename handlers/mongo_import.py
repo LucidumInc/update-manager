@@ -19,8 +19,11 @@ def run_import_cmd(source, destination, drop=False, override=False, upsert_field
         filepath = f"/usr/lucidum/mongo/db/{source}"   # host path
     else:
         filepath = f"/bitnami/mongodb/{source}"        # container path
-    # Determine auth DB
-    auth_db = "admin" if is_srv else configs["mongo_db"]
+    auth_db = "admin" if is_srv else "test_database"
+    logger.info(
+        f"[mongoimport] Starting import for collection='{destination}' "
+        f"source='{source}' srv_mode={is_srv} filepath='{filepath}' auth_db='{auth_db}'"
+    )
     # Build the base mongoimport command template
     import_cmd = (
         f"mongoimport "
@@ -35,33 +38,53 @@ def run_import_cmd(source, destination, drop=False, override=False, upsert_field
     )
     if drop:
         import_cmd += " --drop"
+        logger.info(f"[mongoimport] Mode: drop existing documents")
     elif override:
         import_cmd += f" --mode=upsert --upsertFields={upsert_fields}"
+        logger.info(f"[mongoimport] Mode: upsert override on fields={upsert_fields}")
+    else:
+        logger.info(f"[mongoimport] Mode: insert only")
+
+    formatted_cmd = import_cmd.format(**configs)
     # --- Branch 1: Mongo Atlas → run via subprocess on host ---
     if is_srv:
+        logger.info(f"[mongoimport] Executing on host via subprocess: {formatted_cmd}")
         try:
-            cmd_list = import_cmd.format(**configs).split()
+            cmd_list = formatted_cmd.split()
             subprocess.run(cmd_list, check=True)
+            logger.info(f"[mongoimport] Import completed successfully (host subprocess mode)")
         except Exception as e:
-            logger.warning(f"-- mongoimport failed for {source} into {destination}: {e}")
+            logger.warning(
+                f"[mongoimport] FAILED for source='{source}' into '{destination}': {e}"
+            )
         finally:
-            # cleanup on host
             try:
                 os.remove(filepath)
+                logger.info(f"[mongoimport] Removed host file '{filepath}'")
             except Exception as e:
-                logger.warning(f"-- cannot remove host file {filepath}: {e}")
+                logger.warning(f"[mongoimport] Could not remove host file '{filepath}': {e}")
         return
-    # --- Branch 2: local MongoDB → run inside Docker container ---
+    # --- Branch 2: Normal host → run inside Docker container ---
     container = get_docker_container("mongo")
+    logger.info(f"[mongoimport] Executing inside container: {formatted_cmd}")
     try:
-        result = container.exec_run(import_cmd.format(**configs))
+        result = container.exec_run(formatted_cmd)
         if result.exit_code:
-            logger.error(result.output.decode("utf-8"))
+            logger.error(
+                f"[mongoimport] FAILED inside container (exit={result.exit_code}): "
+                f"{result.output.decode('utf-8')}"
+            )
+        else:
+            logger.info(f"[mongoimport] Import completed successfully (container mode)")
     finally:
-        # cleanup inside container
         rm_result = container.exec_run(f"rm {filepath}", user="root")
         if rm_result.exit_code:
-            logger.warning(rm_result.output.decode("utf-8"))
+            logger.warning(
+                f"[mongoimport] Could not remove container file '{filepath}': "
+                f"{rm_result.output.decode('utf-8')}"
+            )
+        else:
+            logger.info(f"[mongoimport] Removed container file '{filepath}'")
 
 
 class MongoImportJsonRunner:

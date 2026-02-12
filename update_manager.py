@@ -216,8 +216,6 @@ def build_dh(key_dir: str) -> None:
 def run_connector_config_to_db():
     from api_handler import get_local_connectors, get_local_action, env_vars
     from docker_service import run_docker_container
-    env_vars['DYNACONF_MONGO_CONFIG__mongo_pwd'] = encrpyt_password(
-        env_vars['DYNACONF_MONGO_CONFIG__mongo_pwd'], True)
     connectors = get_local_connectors()
     action = get_local_action()
     if action:

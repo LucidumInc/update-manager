@@ -28,7 +28,7 @@ from pydantic import BaseModel, validator
 from openvpn_status_parser import revertDatetimeFormat
 
 from config_handler import get_lucidum_dir, get_images, get_mongo_config, get_mongo_client, get_ecr_token, \
-    get_ecr_url, get_ecr_client, get_aws_config, get_ecr_base, get_source_mapping_file_path
+    get_ecr_url, get_ecr_client, get_aws_config, get_ecr_base, get_source_mapping_file_path, encrpyt_password
 from docker_service import start_docker_compose, stop_docker_compose, list_docker_compose_containers, \
     start_docker_compose_service, stop_docker_compose_service, restart_docker_compose, restart_docker_compose_service, \
     get_docker_compose_logs, run_docker_container, get_docker_container
@@ -59,7 +59,7 @@ configs = get_mongo_config()
 env_vars = {
     "DYNACONF_MONGO_CONFIG__mongo_host": configs['mongo_host'],
     "DYNACONF_MONGO_CONFIG__mongo_db": configs['mongo_db'],
-    "DYNACONF_MONGO_CONFIG__mongo_pwd": configs['mongo_pwd'],
+    "DYNACONF_MONGO_CONFIG__mongo_pwd": encrpyt_password(configs['mongo_pwd'], True),
     "DYNACONF_MONGO_CONFIG__mongo_user": configs['mongo_user']
 }
 

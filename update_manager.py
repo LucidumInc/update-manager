@@ -214,7 +214,7 @@ def build_dh(key_dir: str) -> None:
 
 @cli.command()
 def run_connector_config_to_db():
-    from api_handler import get_local_connectors, get_local_action
+    from api_handler import get_local_connectors, get_local_action, env_vars
     from docker_service import run_docker_container
     connectors = get_local_connectors()
     action = get_local_action()
@@ -229,7 +229,8 @@ def run_connector_config_to_db():
             image = f"{main_image}:{connector['version']}"
             command = f'bash -c "python lucidum_{connector["type"]}.py config-to-db"'
             out = run_docker_container(
-                image, stdout=True, stderr=True, remove=True, network="lucidum_default", command=command
+                image, stdout=True, stderr=True, remove=True, network="lucidum_default", command=command,
+                environment=env_vars
             )
             logger.info(connector)
             logger.info(out.decode())

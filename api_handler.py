@@ -55,6 +55,14 @@ from fastapi.encoders import ENCODERS_BY_TYPE
 
 ENCODERS_BY_TYPE[ObjectId] = str
 
+configs = get_mongo_config()
+env_vars = {
+    "DYNACONF_MONGO_CONFIG__mongo_host": configs['mongo_host'],
+    "DYNACONF_MONGO_CONFIG__mongo_db": configs['mongo_db'],
+    "DYNACONF_MONGO_CONFIG__mongo_pwd": configs['mongo_pwd'],
+    "DYNACONF_MONGO_CONFIG__mongo_user": configs['mongo_user']
+}
+
 
 class MongoDBClient:
     _mongo_db = "test_database"
@@ -440,7 +448,7 @@ def run_connector_test_command(connector_type: str, technology: str, profile_db_
         docker_privileged = True
     out = run_docker_container(
         image, stdout=True, stderr=True, remove=True, network="lucidum_default", privileged=docker_privileged,
-        command=command
+        command=command, environment=env_vars
     )
     if trace_id:
         _db_client.client['test_database']['connector_test_result'].update_one({"trace_id": trace_id}, {
@@ -462,7 +470,7 @@ def run_action_test_command(bridge: str, raw_config_name: str):
     docker_privileged = False
     out = run_docker_container(
         image, stdout=True, stderr=True, remove=True, network="lucidum_default", privileged=docker_privileged,
-        command=command
+        command=command, environment=env_vars
     )
     test_result = _db_client.client['test_database']['local_integration_configuration'].find_one(
                     {"bridge_name": bridge, "config_name": config_name})
@@ -523,7 +531,8 @@ def run_connector_config_to_db():
         image = f"{main_image}:{connector['version']}"
         command = f'bash -c "python lucidum_{connector["type"]}.py config-to-db"'
         out = run_docker_container(
-            image, stdout=True, stderr=True, remove=True, network="lucidum_default", command=command
+            image, stdout=True, stderr=True, remove=True, network="lucidum_default", command=command,
+            environment=env_vars
         )
         result.append({
             "status": "OK",

@@ -473,7 +473,7 @@ def run_action_test_command(bridge: str, raw_config_name: str):
         command=command, environment=env_vars
     )
     test_result = _db_client.client[configs['mongo_db']]['local_integration_configuration'].find_one(
-                    {"bridge_name": bridge, "config_name": config_name})
+        {"bridge_name": bridge, "config_name": config_name})
     if test_result:
         response = test_result.get('test_status')
         test_time = test_result.get('last_tested_at')
@@ -641,6 +641,7 @@ def get_clients():
 
     return {"clients": clients, }
 
+
 @api_router.get("/tunnel/server/status")
 def get_server_status():
     container = get_docker_container("tunnel")
@@ -648,7 +649,7 @@ def get_server_status():
     result = container.exec_run(['bash', '-c', cmd])
     if result and result.output:
         result_str = result.output.decode('utf-8')
-        if result_str and len(result_str.split("notAfter="))>1:
+        if result_str and len(result_str.split("notAfter=")) > 1:
             date_str = result_str.split("notAfter=")[-1].strip()
             datetime_obj = parser.parse(date_str)
             return {"serverCertExpireDate": datetime_obj.isoformat()}

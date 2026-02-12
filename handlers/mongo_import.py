@@ -4,6 +4,7 @@ import subprocess
 import json
 import os
 import shlex
+from urllib.parse import quote_plus
 from loguru import logger
 
 from config_handler import get_mongo_config
@@ -45,6 +46,8 @@ def run_import_cmd(source, destination, drop=False, override=False, upsert_field
     mongo_pwd = configs["mongo_pwd"]
     mongo_db = configs["mongo_db"]
     mongo_port = configs["mongo_port"]
+    encoded_user = quote_plus(configs["mongo_user"])
+    encoded_pwd = quote_plus(configs["mongo_pwd"])
     # ----------------------------------------------------------------------
     # Build URI (SRV vs non-SRV)
     # ----------------------------------------------------------------------
@@ -52,15 +55,16 @@ def run_import_cmd(source, destination, drop=False, override=False, upsert_field
         # configs["mongo_host"] like: mongodb+srv://cluster.mongodb.net
         host_part = configs["mongo_host"].replace("mongodb+srv://", "")
         uri = (
-            f"mongodb+srv://{mongo_user}:{mongo_pwd}@{host_part}/"
-            f"{mongo_db}"
+            f"mongodb+srv://{encoded_user}:{encoded_pwd}@{host_part}/"
+            f"{configs['mongo_db']}"
         )
     else:
         uri = (
-            f"mongodb://{mongo_user}:{mongo_pwd}"
-            f"@localhost:{mongo_port}/{mongo_db}?"
-            f"authSource={mongo_db}"
+            f"mongodb://{encoded_user}:{encoded_pwd}"
+            f"@localhost:{configs['mongo_port']}/{configs['mongo_db']}?"
+            f"authSource={configs['mongo_db']}"
         )
+
     # ----------------------------------------------------------------------
     # Build mongoimport command (same structure for both modes)
     # ----------------------------------------------------------------------

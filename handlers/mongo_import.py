@@ -3,6 +3,7 @@ import requests
 import subprocess
 import json
 import os
+import shlex
 from loguru import logger
 
 from config_handler import get_mongo_config
@@ -19,8 +20,8 @@ def run_import_cmd(source, destination, drop=False, override=False, upsert_field
     whether the MongoDB connection uses an SRV URI (Atlas) or a standard host:port
     connection (local/replica set). Both modes use a consistent --uri-based import.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     source : str
         The filename to import (JSON/CSV) already placed in /usr/lucidum/mongo/db/.
     destination : str
@@ -35,53 +36,52 @@ def run_import_cmd(source, destination, drop=False, override=False, upsert_field
     logger.info("[mongoimport] ===================================================================")
     configs = get_mongo_config()
     is_srv = configs["mongo_host"].startswith("mongodb+srv://")
-    # All imports now read from the host
     filepath = f"/usr/lucidum/mongo/db/{source}"
     logger.info(
         f"[mongoimport] Starting import for collection='{destination}' "
         f"source='{source}' srv_mode={is_srv} filepath='{filepath}'"
     )
+    mongo_user = configs["mongo_user"]
+    mongo_pwd = configs["mongo_pwd"]
+    mongo_db = configs["mongo_db"]
+    mongo_port = configs["mongo_port"]
     # ----------------------------------------------------------------------
     # Build URI (SRV vs non-SRV)
     # ----------------------------------------------------------------------
     if is_srv:
-        # Atlas SRV URI
+        # configs["mongo_host"] like: mongodb+srv://cluster.mongodb.net
         host_part = configs["mongo_host"].replace("mongodb+srv://", "")
-        uri = (f"mongodb+srv://{configs['mongo_user']}:{configs['mongo_pwd']}@{host_part}/"
-               f"{configs['mongo_db']}?authSource=admin")
-
-    else:
-        # Local URI (host import always uses localhost)
         uri = (
-            f"mongodb://{configs['mongo_user']}:{configs['mongo_pwd']}"
-            f"@localhost:{configs['mongo_port']}/{configs['mongo_db']}?"
-            f"authSource={configs['mongo_db']}"
+            f"mongodb+srv://{mongo_user}:{mongo_pwd}@{host_part}/"
+            f"{mongo_db}"
+        )
+    else:
+        uri = (
+            f"mongodb://{mongo_user}:{mongo_pwd}"
+            f"@localhost:{mongo_port}/{mongo_db}?"
+            f"authSource={mongo_db}"
         )
     # ----------------------------------------------------------------------
     # Build mongoimport command (same structure for both modes)
     # ----------------------------------------------------------------------
     import_cmd = (
         f"mongoimport "
-        f"--uri=\"{uri}\" "
+        f'--uri="{uri}" '
         f"--collection={destination} "
         f"--file={filepath}"
     )
-    # Add flags once
     if drop:
         import_cmd += " --drop"
-        logger.info(f"[mongoimport] Mode: drop existing documents")
+        logger.info("[mongoimport] Mode: drop existing documents")
     elif override:
         import_cmd += f" --mode=upsert --upsertFields={upsert_fields}"
         logger.info(f"[mongoimport] Mode: upsert override on fields={upsert_fields}")
     else:
-        logger.info(f"[mongoimport] Mode: insert only")
+        logger.info("[mongoimport] Mode: insert only")
     logger.info(f"[mongoimport] Executing on host via subprocess: {import_cmd}")
-    # ----------------------------------------------------------------------
-    # Execute on host + cleanup
-    # ----------------------------------------------------------------------
     try:
-        subprocess.run(import_cmd.split(), check=True)
-        logger.info(f"[mongoimport] Import completed successfully (host mode)")
+        subprocess.run(shlex.split(import_cmd), check=True)
+        logger.info("[mongoimport] Import completed successfully (host mode)")
     except Exception as e:
         logger.warning(
             f"[mongoimport] FAILED for source='{source}' into '{destination}': {e}"

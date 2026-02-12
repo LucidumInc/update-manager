@@ -1,5 +1,6 @@
 import sys
 import requests
+import subprocess
 import json
 import os
 from loguru import logger
@@ -10,25 +11,64 @@ from exceptions import AppError
 from api_handler import MongoDBClient
 
 
+def run_import_cmd(source, destination, drop=False, override=False, upsert_fields=None):
+    configs = get_mongo_config()
+    is_srv = configs["mongo_host"].startswith("mongodb+srv://")
+    # File path depends on execution mode
+    if is_srv:
+        filepath = f"/usr/lucidum/mongo/db/{source}"   # host path
+    else:
+        filepath = f"/bitnami/mongodb/{source}"        # container path
+    # Determine auth DB
+    auth_db = "admin" if is_srv else configs["mongo_db"]
+    # Build the base mongoimport command template
+    import_cmd = (
+        f"mongoimport "
+        f"--username={{mongo_user}} "
+        f"--password={{mongo_pwd}} "
+        f"--authenticationDatabase={auth_db} "
+        f"--host={{mongo_host}} "
+        f"--port={{mongo_port}} "
+        f"--db={{mongo_db}} "
+        f"--collection={destination} "
+        f"--file={filepath}"
+    )
+    if drop:
+        import_cmd += " --drop"
+    elif override:
+        import_cmd += f" --mode=upsert --upsertFields={upsert_fields}"
+    # --- Branch 1: Mongo Atlas → run via subprocess on host ---
+    if is_srv:
+        try:
+            cmd_list = import_cmd.format(**configs).split()
+            subprocess.run(cmd_list, check=True)
+        except Exception as e:
+            logger.warning(f"-- mongoimport failed for {source} into {destination}: {e}")
+        finally:
+            # cleanup on host
+            try:
+                os.remove(filepath)
+            except Exception as e:
+                logger.warning(f"-- cannot remove host file {filepath}: {e}")
+        return
+    # --- Branch 2: local MongoDB → run inside Docker container ---
+    container = get_docker_container("mongo")
+    try:
+        result = container.exec_run(import_cmd.format(**configs))
+        if result.exit_code:
+            logger.error(result.output.decode("utf-8"))
+    finally:
+        # cleanup inside container
+        rm_result = container.exec_run(f"rm {filepath}", user="root")
+        if rm_result.exit_code:
+            logger.warning(rm_result.output.decode("utf-8"))
+
+
 class MongoImportJsonRunner:
     container_dest_dir = "/bitnami/mongodb"
 
     def __call__(self, source, destination, drop=False, override=False, upsert_fields='_id'):
-        container = get_docker_container("mongo")
-        container_filepath = f"{self.container_dest_dir}/{os.path.basename(source)}"
-        import_cmd = f"mongoimport --username={{mongo_user}} --password={{mongo_pwd}} --authenticationDatabase=test_database --host={{mongo_host}} --port={{mongo_port}} --db={{mongo_db}} --collection={destination} --file={container_filepath}"
-        if drop is True:
-            import_cmd += ' --drop'
-        elif override is True:
-            import_cmd += f' --mode=upsert --upsertFields={upsert_fields}'
-        try:
-            result = container.exec_run(import_cmd.format(**get_mongo_config()))
-            if result.exit_code:
-                logger.error(result.output.decode('utf-8'))
-        finally:
-            rm_result = container.exec_run(f"rm {container_filepath}", user='root')
-            if rm_result.exit_code:
-                logger.warning(rm_result.output.decode('utf-8'))
+        run_import_cmd(source, destination, drop=False, override=False, upsert_fields='_id')
 
 
 @logger.catch(onerror=lambda _: sys.exit(1))

@@ -2,7 +2,7 @@ import click
 import json
 from loguru import logger
 
-from config_handler import get_images_from_ecr, get_local_images, get_images, get_key_dir_config
+from config_handler import get_images_from_ecr, get_local_images, get_images, get_key_dir_config, encrpyt_password
 from history_handler import history_command, get_install_ecr_entries, get_history_command_choices
 from install_handler import install_ecr, get_components, remove_components, list_components, install_image_from_ecr
 
@@ -216,6 +216,8 @@ def build_dh(key_dir: str) -> None:
 def run_connector_config_to_db():
     from api_handler import get_local_connectors, get_local_action, env_vars
     from docker_service import run_docker_container
+    env_vars['DYNACONF_MONGO_CONFIG__mongo_pwd'] = encrpyt_password(
+        env_vars['DYNACONF_MONGO_CONFIG__mongo_pwd'], True)
     connectors = get_local_connectors()
     action = get_local_action()
     if action:

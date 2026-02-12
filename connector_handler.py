@@ -64,19 +64,20 @@ def _get_connector_aws_bridges(path):
 @logger.catch(onerror=lambda _: sys.exit(1))
 def run(output):
     images = get_local_images()
+    configs = get_mongo_config()
     if not any(is_connector(image["name"]) for image in images):
         logger.warning("No connectors found")
         return
     logger.info("Writing connectors bridge information to '{}' source...", output)
     output_manager = _get_output_manager(output)
     collection = "local_connector"
-    output_manager.drop(output_manager.client.test_database[collection])
+    output_manager.drop(output_manager.client[configs['mongo_db']][collection])
     for image in images:
         host_path = image.get("hostPath")
         if image["name"] == "connector-aws" and host_path and os.path.exists(host_path):
             data = _get_connector_aws_bridges(host_path)
             logger.info("{} bridge information:\n{}", image["name"], json.dumps(data, indent=2))
-            result = output_manager.insert(output_manager.client.test_database[collection], data)
+            result = output_manager.insert(output_manager.client[configs['mongo_db']][collection], data)
             logger.info(
                 "{} bridge information was written to {} collection: {}", image["name"], collection, result.inserted_id
             )

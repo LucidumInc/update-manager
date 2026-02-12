@@ -42,10 +42,6 @@ def run_import_cmd(source, destination, drop=False, override=False, upsert_field
         f"[mongoimport] Starting import for collection='{destination}' "
         f"source='{source}' srv_mode={is_srv} filepath='{filepath}'"
     )
-    mongo_user = configs["mongo_user"]
-    mongo_pwd = configs["mongo_pwd"]
-    mongo_db = configs["mongo_db"]
-    mongo_port = configs["mongo_port"]
     encoded_user = quote_plus(configs["mongo_user"])
     encoded_pwd = quote_plus(configs["mongo_pwd"])
     # ----------------------------------------------------------------------
@@ -64,7 +60,6 @@ def run_import_cmd(source, destination, drop=False, override=False, upsert_field
             f"@localhost:{configs['mongo_port']}/{configs['mongo_db']}?"
             f"authSource={configs['mongo_db']}"
         )
-
     # ----------------------------------------------------------------------
     # Build mongoimport command (same structure for both modes)
     # ----------------------------------------------------------------------
@@ -85,11 +80,8 @@ def run_import_cmd(source, destination, drop=False, override=False, upsert_field
     logger.info(f"[mongoimport] Executing on host via subprocess: {import_cmd}")
     try:
         subprocess.run(shlex.split(import_cmd), check=True)
-        logger.info("[mongoimport] Import completed successfully (host mode)")
     except Exception as e:
-        logger.warning(
-            f"[mongoimport] FAILED for source='{source}' into '{destination}': {e}"
-        )
+        logger.warning(f"[mongoimport] FAILED for source='{source}' into '{destination}': {e}")
     finally:
         try:
             os.remove(filepath)

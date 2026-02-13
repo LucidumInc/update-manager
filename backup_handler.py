@@ -10,6 +10,7 @@ from config_handler import get_db_config, get_mongo_config, get_lucidum_dir, get
 from docker_service import get_docker_container
 from exceptions import AppError
 from file_handler import get_file_handler, LocalFileHandler
+from handlers.mongo_backup_restore import run_mongo_backup_or_restore
 
 
 class BaseBackupRunner:
@@ -73,28 +74,18 @@ class MongoBackupRunner(BaseBackupRunner):
         self.exclude_collections = exclude_collections
 
     def __call__(self):
-        container = get_docker_container("mongo")
-        filename = f"{str(uuid.uuid4())}_mongo_dump.gz"
-        dump_cmd = f"mongodump --username={{mongo_user}} --password={{mongo_pwd}} --authenticationDatabase=test_database --host={{mongo_host}} --port={{mongo_port}} --forceTableScan --archive={self.container_dir}/{filename} --gzip --db={{mongo_db}}"
-        if self.collection is not None:
-            dump_cmd = f"{dump_cmd} --collection={self.collection}"
-        if self.exclude_collections:
-            excludes = [f"--excludeCollection={collection}" for collection in self.exclude_collections]
-            dump_cmd = f"{dump_cmd} {' '.join(excludes)}"
-        logger.info("Dumping data for '{}' into {} file...", self.name, self.backup_file)
-        try:
-            result = container.exec_run(dump_cmd.format(**get_mongo_config()))
-            if result.exit_code:
-                raise AppError(result.output.decode('utf-8'))
-            self.file_handler.copy_file(
-                os.path.join(self.host_dir.format(get_lucidum_dir()), filename), self.backup_file
-            )
-        finally:
-            rm_result = container.exec_run(f"rm {self.container_dir}/{filename}", user='root')
-            if rm_result.exit_code:
-                logger.warning(rm_result.output.decode('utf-8'))
-        logger.info("'{}' backup data is saved to {}", self.name, self.backup_file)
-        return self.backup_file
+        return run_mongo_backup_or_restore(
+            mode="backup",
+            backup_file=self.backup_file,
+            collection=self.collection,
+            exclude_collections=self.exclude_collections,
+            force_table_scan=True,
+            stop_web=False,
+            web_service=None,
+            name=self.name,
+            host_dir=self.host_dir.format(get_lucidum_dir()),
+            file_handler=self.file_handler
+        )
 
 
 class LucidumDirBackupRunner(BaseBackupRunner):

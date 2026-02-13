@@ -91,8 +91,6 @@ def run_import_cmd(source, destination, drop=False, override=False, upsert_field
 
 
 class MongoImportJsonRunner:
-    container_dest_dir = "/bitnami/mongodb"
-
     def __call__(self, source, destination, drop=False, override=False, upsert_fields='_id'):
         run_import_cmd(source, destination, drop, override, upsert_fields)
 

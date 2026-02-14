@@ -137,7 +137,8 @@ def run_mongo_backup_or_restore(
             else:
                 shutil.copy2(temp_path, backup_file)
 
-            logger.info(f"'{name}' backup data is saved to {backup_file}.")
+            full_path = os.path.abspath(backup_file)
+            logger.info(f"'{name}' backup data is saved to {full_path}.")
 
             # Remove only the temporary dump file.
             if os.path.isfile(temp_path):

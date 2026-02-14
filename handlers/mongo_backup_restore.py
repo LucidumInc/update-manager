@@ -124,11 +124,7 @@ def run_mongo_backup_or_restore(
                 for col in exclude_collections:
                     cmd.append(f"--excludeCollection={col}")
 
-            logger.info(
-                "Dumping data for '%s' into %s file...",
-                name or "<mongo>",
-                backup_file
-            )
+            logger.info(f"Dumping data for '{name}' into {backup_file} file...")
 
             # Execute mongodump on the host.
             subprocess.run(cmd, check=True)
@@ -141,7 +137,7 @@ def run_mongo_backup_or_restore(
             else:
                 shutil.copy2(temp_path, backup_file)
 
-            logger.info("'%s' backup data is saved to %s", name or "<mongo>", backup_file)
+            logger.info(f"'{name}' backup data is saved to {backup_file}.")
 
             # Remove only the temporary dump file.
             if os.path.isfile(temp_path):
@@ -163,9 +159,9 @@ def run_mongo_backup_or_restore(
                 "--drop"  # Always drop before restore.
             ]
 
-            logger.info("Restoring MongoDB from backup file %s ...", backup_file)
+            logger.info(f"Restoring MongoDB from backup file {backup_file} ...")
             subprocess.run(cmd, check=True)
-            logger.info("Restore from %s completed", backup_file)
+            logger.info(f"Restored from {backup_file}.")
 
         else:
             raise AppError(f"Unknown mode '{mode}'")

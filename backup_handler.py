@@ -19,11 +19,11 @@ class BaseBackupRunner:
     def __init__(self, name: str, file_handler, backup_dir: str = None, path: str = None) -> None:
         self.name = name
         self.file_handler = file_handler
-        self.backup_dir = backup_dir
+        self.backup_dir = backup_dir or "/usr/lucidum/backup"
+        # Ensure backup directory exists
+        os.makedirs(self.backup_dir, exist_ok=True)
         self._path = path
         self.datetime_now = datetime.now()
-        if self.backup_dir is not None:
-            os.makedirs(backup_dir, exist_ok=True)
 
     @property
     def backup_file(self):

@@ -79,7 +79,7 @@ class MongoRestoreRunner(BaseRestoreRunner):
 
     @log_wrap
     def __call__(self):
-        return run_mongo_backup_or_restore(
+        run_mongo_backup_or_restore(
             mode="restore",
             backup_file=self.get_backup_filepath(),
             stop_web=self._web_stop,

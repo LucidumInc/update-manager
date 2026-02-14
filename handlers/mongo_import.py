@@ -1,7 +1,10 @@
 import sys
 import requests
+import subprocess
 import json
 import os
+import shlex
+from urllib.parse import quote_plus
 from loguru import logger
 
 from config_handler import get_mongo_config
@@ -10,25 +13,86 @@ from exceptions import AppError
 from api_handler import MongoDBClient
 
 
-class MongoImportJsonRunner:
-    container_dest_dir = "/bitnami/mongodb"
+def run_import_cmd(source, destination, drop=False, override=False, upsert_fields=None):
+    """
+    Run a mongoimport operation for a given source file into a target collection.
 
-    def __call__(self, source, destination, drop=False, override=False, upsert_fields='_id'):
-        container = get_docker_container("mongo")
-        container_filepath = f"{self.container_dest_dir}/{os.path.basename(source)}"
-        import_cmd = f"mongoimport --username={{mongo_user}} --password={{mongo_pwd}} --authenticationDatabase=test_database --host={{mongo_host}} --port={{mongo_port}} --db={{mongo_db}} --collection={destination} --file={container_filepath}"
-        if drop is True:
-            import_cmd += ' --drop'
-        elif override is True:
-            import_cmd += f' --mode=upsert --upsertFields={upsert_fields}'
+    This unified version always executes mongoimport on the host, regardless of
+    whether the MongoDB connection uses an SRV URI (Atlas) or a standard host:port
+    connection (local/replica set). Both modes use a consistent --uri-based import.
+
+    Parameters
+    ----------
+    source : str
+        The filename to import (JSON/CSV) already placed in /usr/lucidum/mongo/db/.
+    destination : str
+        The MongoDB collection name to import into.
+    drop : bool
+        If True, drop the collection before import.
+    override : bool
+        If True, perform an upsert import using the provided upsert_fields.
+    upsert_fields : str
+        Comma-separated list of fields used for upsert matching.
+    """
+    logger.info("[mongoimport] ===================================================================")
+    configs = get_mongo_config()
+    is_srv = configs["mongo_host"].startswith("mongodb+srv://")
+    filepath = f"/usr/lucidum/mongo/db/{source}"
+    logger.info(
+        f"[mongoimport] Starting import for collection='{destination}' "
+        f"source='{source}' srv_mode={is_srv} filepath='{filepath}'"
+    )
+    encoded_user = quote_plus(configs["mongo_user"])
+    encoded_pwd = quote_plus(configs["mongo_pwd"])
+    # ----------------------------------------------------------------------
+    # Build URI (SRV vs non-SRV)
+    # ----------------------------------------------------------------------
+    if is_srv:
+        # configs["mongo_host"] like: mongodb+srv://cluster.mongodb.net
+        host_part = configs["mongo_host"].replace("mongodb+srv://", "")
+        uri = (
+            f"mongodb+srv://{encoded_user}:{encoded_pwd}@{host_part}/"
+            f"{configs['mongo_db']}"
+        )
+    else:
+        uri = (
+            f"mongodb://{encoded_user}:{encoded_pwd}"
+            f"@localhost:{configs['mongo_port']}/{configs['mongo_db']}?"
+            f"authSource={configs['mongo_db']}"
+        )
+    # ----------------------------------------------------------------------
+    # Build mongoimport command (same structure for both modes)
+    # ----------------------------------------------------------------------
+    import_cmd = (
+        f"mongoimport "
+        f'--uri="{uri}" '
+        f"--collection={destination} "
+        f"--file={filepath}"
+    )
+    if drop:
+        import_cmd += " --drop"
+        logger.info("[mongoimport] Mode: drop existing documents")
+    elif override:
+        import_cmd += f" --mode=upsert --upsertFields={upsert_fields}"
+        logger.info(f"[mongoimport] Mode: upsert override on fields={upsert_fields}")
+    else:
+        logger.info("[mongoimport] Mode: insert only")
+    logger.info(f"[mongoimport] Executing on host via subprocess: {import_cmd}")
+    try:
+        subprocess.run(shlex.split(import_cmd), check=True)
+    except Exception as e:
+        logger.warning(f"[mongoimport] FAILED for source='{source}' into '{destination}': {e}")
+    finally:
         try:
-            result = container.exec_run(import_cmd.format(**get_mongo_config()))
-            if result.exit_code:
-                logger.error(result.output.decode('utf-8'))
-        finally:
-            rm_result = container.exec_run(f"rm {container_filepath}", user='root')
-            if rm_result.exit_code:
-                logger.warning(rm_result.output.decode('utf-8'))
+            os.remove(filepath)
+            logger.info(f"[mongoimport] Removed host file '{filepath}'")
+        except Exception as e:
+            logger.warning(f"[mongoimport] Could not remove host file '{filepath}': {e}")
+
+
+class MongoImportJsonRunner:
+    def __call__(self, source, destination, drop=False, override=False, upsert_fields='_id'):
+        run_import_cmd(source, destination, drop, override, upsert_fields)
 
 
 @logger.catch(onerror=lambda _: sys.exit(1))

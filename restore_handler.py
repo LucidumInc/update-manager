@@ -12,6 +12,7 @@ from config_handler import get_db_config, get_mongo_config, get_lucidum_dir, get
 from docker_service import create_archive, get_docker_container
 from exceptions import AppError
 from file_handler import get_file_handler, LocalFileHandler
+from handlers.mongo_backup_restore import run_mongo_backup_or_restore
 
 
 def log_wrap(func):
@@ -78,29 +79,13 @@ class MongoRestoreRunner(BaseRestoreRunner):
 
     @log_wrap
     def __call__(self):
-        lucidum_dir = get_lucidum_dir()
-        docker_compose_executable = shutil.which("docker")
-        if self._web_stop:
-            subprocess.run([docker_compose_executable, "compose", "stop", self.web_service], cwd=lucidum_dir, check=True)
-        container = get_docker_container("mongo")
-        local_filepath = self.get_backup_filepath()
-        tar_stream = create_archive(local_filepath)
-        success = container.put_archive(self.container_dest_dir, tar_stream)
-        if not success:
-            raise AppError(f"Putting '{self.filepath}' file to 'mongo' container was failed")
-        restore_cmd = f"mongorestore -v --username={{mongo_user}} --password={{mongo_pwd}} --authenticationDatabase=test_database --host={{mongo_host}} --port={{mongo_port}} --archive={self.container_dest_dir}/{os.path.basename(local_filepath)} --gzip --db={{mongo_db}} --drop"
-        try:
-            result = container.exec_run(restore_cmd.format(**get_mongo_config()))
-            if result.exit_code:
-                raise AppError(result.output.decode('utf-8'))
-        finally:
-            rm_result = container.exec_run(f"rm {self.container_dest_dir}/{os.path.basename(local_filepath)}", user='root')
-            if rm_result.exit_code:
-                logger.warning(rm_result.output.decode('utf-8'))
-            if os.path.isfile(local_filepath):
-                os.remove(local_filepath)
-            if self._web_stop:
-                subprocess.run([docker_compose_executable, "start", self.web_service], cwd=lucidum_dir, check=True)
+        run_mongo_backup_or_restore(
+            mode="restore",
+            backup_file=self.get_backup_filepath(),
+            stop_web=self._web_stop,
+            web_service=self.web_service,
+            name=self.name
+        )
 
 
 class LucidumDirRestoreRunner(BaseRestoreRunner):

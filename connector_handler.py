@@ -1,27 +1,23 @@
 import json
 import os
 import sys
-from urllib.parse import quote_plus
-
 from loguru import logger
-from pymongo import MongoClient
 
-from config_handler import get_local_images, get_mongo_config, is_connector
+from config_handler import get_local_images, get_mongo_config, is_connector, get_mongo_client
 
 
 class MongoDBClient:
     MONGO_URI_FORMAT = "mongodb://{user}:{password}@{host}:{port}/?authSource={db}"
 
     def __init__(self, mongo_host, mongo_user, mongo_pwd, mongo_port, mongo_db) -> None:
-        self._uri = self.MONGO_URI_FORMAT.format(
-            user=quote_plus(mongo_user), password=quote_plus(mongo_pwd), host=mongo_host, port=mongo_port, db=mongo_db
-        )
+        self._cfg = {"mongo_host": mongo_host, "mongo_user": mongo_user, "mongo_pwd": mongo_pwd,
+                     "mongo_port": mongo_port, "mongo_db": mongo_db}
         self._client = None
 
     @property
     def client(self):
         if self._client is None:
-            self._client = MongoClient(self._uri)
+            self._client = get_mongo_client(self._cfg)
         return self._client
 
     def insert(self, collection, data):
@@ -68,19 +64,20 @@ def _get_connector_aws_bridges(path):
 @logger.catch(onerror=lambda _: sys.exit(1))
 def run(output):
     images = get_local_images()
+    configs = get_mongo_config()
     if not any(is_connector(image["name"]) for image in images):
         logger.warning("No connectors found")
         return
     logger.info("Writing connectors bridge information to '{}' source...", output)
     output_manager = _get_output_manager(output)
     collection = "local_connector"
-    output_manager.drop(output_manager.client.test_database[collection])
+    output_manager.drop(output_manager.client[configs['mongo_db']][collection])
     for image in images:
         host_path = image.get("hostPath")
         if image["name"] == "connector-aws" and host_path and os.path.exists(host_path):
             data = _get_connector_aws_bridges(host_path)
             logger.info("{} bridge information:\n{}", image["name"], json.dumps(data, indent=2))
-            result = output_manager.insert(output_manager.client.test_database[collection], data)
+            result = output_manager.insert(output_manager.client[configs['mongo_db']][collection], data)
             logger.info(
                 "{} bridge information was written to {} collection: {}", image["name"], collection, result.inserted_id
             )

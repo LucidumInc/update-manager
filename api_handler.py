@@ -27,8 +27,8 @@ from loguru import logger
 from pydantic import BaseModel, validator
 from openvpn_status_parser import revertDatetimeFormat
 
-from config_handler import get_lucidum_dir, get_images, get_mongo_config, get_ecr_token, \
-    get_ecr_url, get_ecr_client, get_aws_config, get_ecr_base, get_source_mapping_file_path
+from config_handler import get_lucidum_dir, get_images, get_mongo_config, get_mongo_client, get_ecr_token, \
+    get_ecr_url, get_ecr_client, get_aws_config, get_ecr_base, get_source_mapping_file_path, encrpyt_password
 from docker_service import start_docker_compose, stop_docker_compose, list_docker_compose_containers, \
     start_docker_compose_service, stop_docker_compose_service, restart_docker_compose, restart_docker_compose_service, \
     get_docker_compose_logs, run_docker_container, get_docker_container
@@ -55,9 +55,17 @@ from fastapi.encoders import ENCODERS_BY_TYPE
 
 ENCODERS_BY_TYPE[ObjectId] = str
 
+configs = get_mongo_config()
+env_vars = {
+    "DYNACONF_MONGO_CONFIG__mongo_host": configs['mongo_host'],
+    "DYNACONF_MONGO_CONFIG__mongo_db": configs['mongo_db'],
+    "DYNACONF_MONGO_CONFIG__mongo_pwd": encrpyt_password(configs['mongo_pwd'], True),
+    "DYNACONF_MONGO_CONFIG__mongo_user": configs['mongo_user']
+}
+
 
 class MongoDBClient:
-    _mongo_db = "test_database"
+    _mongo_db = configs['mongo_db']
     _mongo_collection = "system_settings"
 
     def __init__(self) -> None:
@@ -66,16 +74,8 @@ class MongoDBClient:
     @property
     def client(self):
         if self._client is None:
-            uri_pattern = "mongodb://{user}:{password}@{host}:{port}/?authSource={db}"
-
             configs = get_mongo_config()
-            self._client = MongoClient(uri_pattern.format(
-                user=quote_plus(configs["mongo_user"]),
-                password=quote_plus(configs["mongo_pwd"]),
-                host=configs["mongo_host"],
-                port=configs["mongo_port"],
-                db=configs["mongo_db"]
-            ))
+            self._client = get_mongo_client(configs)
         return self._client
 
     def get_first_document(self):
@@ -448,10 +448,10 @@ def run_connector_test_command(connector_type: str, technology: str, profile_db_
         docker_privileged = True
     out = run_docker_container(
         image, stdout=True, stderr=True, remove=True, network="lucidum_default", privileged=docker_privileged,
-        command=command
+        command=command, environment=env_vars
     )
     if trace_id:
-        _db_client.client['test_database']['connector_test_result'].update_one({"trace_id": trace_id}, {
+        _db_client.client[configs['mongo_db']]['connector_test_result'].update_one({"trace_id": trace_id}, {
             "$set": {"last_tested_at": datetime.now(tz=timezone.utc)}})
     return {
         "status": "OK",
@@ -470,10 +470,10 @@ def run_action_test_command(bridge: str, raw_config_name: str):
     docker_privileged = False
     out = run_docker_container(
         image, stdout=True, stderr=True, remove=True, network="lucidum_default", privileged=docker_privileged,
-        command=command
+        command=command, environment=env_vars
     )
-    test_result = _db_client.client['test_database']['local_integration_configuration'].find_one(
-                    {"bridge_name": bridge, "config_name": config_name})
+    test_result = _db_client.client[configs['mongo_db']]['local_integration_configuration'].find_one(
+        {"bridge_name": bridge, "config_name": config_name})
     if test_result:
         response = test_result.get('test_status')
         test_time = test_result.get('last_tested_at')
@@ -531,7 +531,8 @@ def run_connector_config_to_db():
         image = f"{main_image}:{connector['version']}"
         command = f'bash -c "python lucidum_{connector["type"]}.py config-to-db"'
         out = run_docker_container(
-            image, stdout=True, stderr=True, remove=True, network="lucidum_default", command=command
+            image, stdout=True, stderr=True, remove=True, network="lucidum_default", command=command,
+            environment=env_vars
         )
         result.append({
             "status": "OK",
@@ -640,6 +641,7 @@ def get_clients():
 
     return {"clients": clients, }
 
+
 @api_router.get("/tunnel/server/status")
 def get_server_status():
     container = get_docker_container("tunnel")
@@ -647,7 +649,7 @@ def get_server_status():
     result = container.exec_run(['bash', '-c', cmd])
     if result and result.output:
         result_str = result.output.decode('utf-8')
-        if result_str and len(result_str.split("notAfter="))>1:
+        if result_str and len(result_str.split("notAfter=")) > 1:
             date_str = result_str.split("notAfter=")[-1].strip()
             datetime_obj = parser.parse(date_str)
             return {"serverCertExpireDate": datetime_obj.isoformat()}

@@ -2,7 +2,7 @@ import click
 import json
 from loguru import logger
 
-from config_handler import get_images_from_ecr, get_local_images, get_images, get_key_dir_config
+from config_handler import get_images_from_ecr, get_local_images, get_images, get_key_dir_config, encrpyt_password
 from history_handler import history_command, get_install_ecr_entries, get_history_command_choices
 from install_handler import install_ecr, get_components, remove_components, list_components, install_image_from_ecr
 
@@ -214,7 +214,7 @@ def build_dh(key_dir: str) -> None:
 
 @cli.command()
 def run_connector_config_to_db():
-    from api_handler import get_local_connectors, get_local_action
+    from api_handler import get_local_connectors, get_local_action, env_vars
     from docker_service import run_docker_container
     connectors = get_local_connectors()
     action = get_local_action()
@@ -229,7 +229,8 @@ def run_connector_config_to_db():
             image = f"{main_image}:{connector['version']}"
             command = f'bash -c "python lucidum_{connector["type"]}.py config-to-db"'
             out = run_docker_container(
-                image, stdout=True, stderr=True, remove=True, network="lucidum_default", command=command
+                image, stdout=True, stderr=True, remove=True, network="lucidum_default", command=command,
+                environment=env_vars
             )
             logger.info(connector)
             logger.info(out.decode())

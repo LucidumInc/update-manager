@@ -56,8 +56,9 @@ from fastapi.encoders import ENCODERS_BY_TYPE
 ENCODERS_BY_TYPE[ObjectId] = str
 
 configs = get_mongo_config()
+is_srv = configs["mongo_host"].startswith("mongodb+srv://")
 env_vars = {
-    "DYNACONF_MONGO_CONFIG__mongo_host": configs['mongo_host'],
+    "DYNACONF_MONGO_CONFIG__mongo_host": configs['mongo_host'] if is_srv else 'mongo',
     "DYNACONF_MONGO_CONFIG__mongo_db": configs['mongo_db'],
     "DYNACONF_MONGO_CONFIG__mongo_pwd": encrpyt_password(configs['mongo_pwd'], True),
     "DYNACONF_MONGO_CONFIG__mongo_user": configs['mongo_user']

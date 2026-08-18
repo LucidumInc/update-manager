@@ -50,7 +50,7 @@ Vagrant.configure('2') do |config|
       python3 -m venv lucidum_venv
       source lucidum_venv/bin/activate
       rm -rf update-manager
-      git clone https://github.com/LucidumInc/update-manager.git
+      git clone https://github.com/Cyderes-Engineering/update-manager.git
       cd update-manager
       pip3 install --no-cache-dir -r requirements.txt
       aws sts get-caller-identity

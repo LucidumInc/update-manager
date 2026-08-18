@@ -12,7 +12,7 @@ jobs:
       matrix:
         repo:
           [
-            "github.com/LucidumInc/update-manager.git",
+            "github.com/Cyderes-Engineering/update-manager.git",
           ]
 
     steps:
